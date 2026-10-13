@@ -15,6 +15,7 @@ from src.domain.schemas.rag import (
     LegalStatus,
 )
 from src.infrastructure.llm.gemini_client import GeminiClient
+from src.infrastructure.observability.langfuse_tracer import LangfuseTracer, get_langfuse_tracer
 from src.infrastructure.search.hybrid_search import HybridSearchEngine
 
 logger = logging.getLogger(__name__)
@@ -42,10 +43,12 @@ class AskLegalQuestionUseCase:
         gemini_client: GeminiClient,
         search_engine: HybridSearchEngine,
         guardrail: CitationGuardrail,
+        tracer: LangfuseTracer | None = None,
     ):
         self.gemini_client = gemini_client
         self.search_engine = search_engine
         self.guardrail = guardrail
+        self.tracer = tracer or get_langfuse_tracer()
 
     def _hash_user_id(self, user_id: str | None) -> str:
         if not user_id:
@@ -61,10 +64,20 @@ class AskLegalQuestionUseCase:
         """Exécute l'orchestration de bout en bout."""
 
         # 1. Recherche documentaire hybride
+        search_span = self.tracer.start_span(
+            trace_id="",
+            name="hybrid_search",
+            span_type="retriever",
+            inputs={"query": request.question, "top_k": 4},
+        )
         search_results = await self.search_engine.search(
             session=session,
             query=request.question,
             top_k=4,
+        )
+        self.tracer.end_span(
+            search_span,
+            outputs={"retrieved_count": len(search_results)},
         )
 
         sources: list[LegalArticleCitation] = []
@@ -117,15 +130,39 @@ DOCUMENTS JURIDIQUES OFFICIELS EXTRAITS :
 Rédige ta réponse structurée en respectant scrupuleusement les règles et le format JSON requis.
 """
             # 3. Génération structurée via Gemini
+            gen_span = self.tracer.start_span(
+                trace_id="",
+                name="gemini_generation",
+                span_type="generation",
+                inputs={"prompt_length": len(prompt)},
+                metadata={"model": settings.GEMINI_TEXT_MODEL},
+            )
             raw_llm_response = await self.gemini_client.generate_legal_response(
                 prompt=prompt,
                 system_instruction=SYSTEM_INSTRUCTION,
             )
+            self.tracer.end_span(
+                gen_span,
+                outputs={"statut": raw_llm_response.statut_legal.value},
+            )
 
             # 4. Garde-fou anti-hallucination déterministe
+            guard_span = self.tracer.start_span(
+                trace_id="",
+                name="citation_guardrail",
+                span_type="guardrail",
+                inputs={"retrieved": retrieved_article_numbers},
+            )
             guard_check = self.guardrail.validate(
                 response=raw_llm_response,
                 retrieved_article_numbers=retrieved_article_numbers,
+            )
+            self.tracer.end_span(
+                guard_span,
+                outputs={
+                    "is_valid": guard_check.is_valid,
+                    "cited_articles": guard_check.validated_response.articles_cites,
+                },
             )
             schema_resp = guard_check.validated_response
             is_valid = guard_check.is_valid

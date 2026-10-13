@@ -17,6 +17,7 @@ from src.domain.schemas.rag import (
     LegalQuestionResponse,
 )
 from src.infrastructure.llm.gemini_client import GeminiClient
+from src.infrastructure.observability.langfuse_tracer import get_langfuse_tracer
 from src.infrastructure.search.hybrid_search import HybridSearchEngine
 
 logger = logging.getLogger(__name__)
@@ -172,6 +173,15 @@ async def submit_feedback(
     interaction.user_feedback_rating = request.rating
     interaction.user_feedback_comment = request.comment
     await session.commit()
+
+    tracer = get_langfuse_tracer()
+    tracer.record_feedback(
+        trace_id=request.interaction_id,
+        rating=request.rating,
+        comment=request.comment,
+    )
+    tracer.flush()
+
     return {"status": "success", "message": "Merci pour votre contribution citoyenne."}
 
 
