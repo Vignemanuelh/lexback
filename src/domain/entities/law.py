@@ -1,6 +1,8 @@
 import uuid
 from datetime import date, datetime
 from typing import Optional
+
+from pgvector.sqlalchemy import VECTOR
 from sqlalchemy import (
     Boolean,
     Date,
@@ -13,7 +15,6 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import TSVECTOR, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from pgvector.sqlalchemy import VECTOR
 
 from src.core.database import Base
 
@@ -23,18 +24,14 @@ class LawVersion(Base):
 
     __tablename__ = "law_versions"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     code_name: Mapped[str] = mapped_column(String(255), nullable=False)
     official_reference: Mapped[str] = mapped_column(String(255), nullable=False)
-    promulgation_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
-    effective_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+    promulgation_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    effective_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, nullable=False
-    )
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
     structures: Mapped[list["LegalStructure"]] = relationship(
         "LegalStructure", back_populates="law_version", cascade="all, delete-orphan"
@@ -52,13 +49,11 @@ class LegalStructure(Base):
 
     __tablename__ = "legal_structures"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     law_version_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("law_versions.id", ondelete="CASCADE"), nullable=False
     )
-    parent_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    parent_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("legal_structures.id", ondelete="CASCADE"), nullable=True
     )
     structure_type: Mapped[str] = mapped_column(String(50), nullable=False)
@@ -83,23 +78,19 @@ class LegalArticle(Base):
 
     __tablename__ = "legal_articles"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     law_version_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("law_versions.id", ondelete="CASCADE"), nullable=False
     )
-    structure_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    structure_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("legal_structures.id", ondelete="SET NULL"), nullable=True
     )
     article_number: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     full_content: Mapped[str] = mapped_column(Text, nullable=False)
     is_in_force: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    amendment_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    amendment_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     search_vector = mapped_column(TSVECTOR)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
     law_version: Mapped["LawVersion"] = relationship("LawVersion", back_populates="articles")
     structure: Mapped[Optional["LegalStructure"]] = relationship(
@@ -123,17 +114,15 @@ class ArticleEmbedding(Base):
 
     __tablename__ = "article_embeddings"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     article_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("legal_articles.id", ondelete="CASCADE"), nullable=False
     )
-    model_name: Mapped[str] = mapped_column(String(100), default="text-embedding-004", nullable=False)
-    embedding = mapped_column(VECTOR(768), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, nullable=False
+    model_name: Mapped[str] = mapped_column(
+        String(100), default="text-embedding-004", nullable=False
     )
+    embedding = mapped_column(VECTOR(768), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
     article: Mapped["LegalArticle"] = relationship("LegalArticle", back_populates="embeddings")
 

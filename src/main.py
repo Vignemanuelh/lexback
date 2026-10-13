@@ -1,5 +1,6 @@
 import logging
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqladmin import Admin
@@ -24,7 +25,7 @@ settings = get_settings()
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_app: FastAPI):
     """Cycle de vie de l'application FastAPI (démarrage et extinction)."""
     logger.info("Démarrage du service LEXBENIN - Assistant Numérique Citoyen...")
     # Vérification ou initialisation de ressources au démarrage
@@ -35,7 +36,10 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    description="Moteur IA RAG & API pour l'Assistant Numérique Citoyen sur le Code du numérique béninois.",
+    description=(
+        "Moteur IA RAG & API pour l'Assistant Numérique Citoyen "
+        "sur le Code du numérique béninois."
+    ),
     version="0.1.0",
     lifespan=lifespan,
     docs_url="/docs",

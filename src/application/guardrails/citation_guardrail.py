@@ -1,6 +1,7 @@
-import re
 import logging
+import re
 from dataclasses import dataclass
+
 from src.domain.schemas.rag import LegalResponseSchema, LegalStatus
 
 logger = logging.getLogger(__name__)

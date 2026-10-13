@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+
 from google import genai
 from google.genai import types
 
@@ -13,13 +13,15 @@ settings = get_settings()
 class GeminiClient:
     """Client d'intégration officiel Google GenAI pour Gemini 2.0 et embeddings."""
 
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: str | None = None):
         self.api_key = api_key or settings.GEMINI_API_KEY
+        self.client: genai.Client | None = None
         if self.api_key:
             self.client = genai.Client(api_key=self.api_key)
         else:
-            self.client = None
-            logger.warning("GEMINI_API_KEY non configurée. Le client Gemini fonctionnera en mode simulation.")
+            logger.warning(
+                "GEMINI_API_KEY non configurée. Le client Gemini fonctionnera en mode simulation."
+            )
 
     async def get_embedding(self, text: str) -> list[float]:
         """Génère l'embedding vectoriel dense pour un fragment de texte."""
@@ -34,9 +36,13 @@ class GeminiClient:
             )
             # Récupère les valeurs du premier embedding
             if hasattr(response, "embeddings") and response.embeddings:
-                return response.embeddings[0].values
+                vals = response.embeddings[0].values
+                if vals is not None:
+                    return list(vals)
             elif hasattr(response, "embedding") and response.embedding:
-                return response.embedding.values
+                vals = response.embedding.values
+                if vals is not None:
+                    return list(vals)
             return [0.0] * settings.EMBEDDING_DIMENSION
         except Exception as e:
             logger.error(f"Erreur lors de la génération de l'embedding Gemini: {e}")
@@ -63,4 +69,5 @@ class GeminiClient:
         )
 
         # Parse et valide via Pydantic
-        return LegalResponseSchema.model_validate_json(response.text)
+        content_text = response.text or "{}"
+        return LegalResponseSchema.model_validate_json(content_text)
