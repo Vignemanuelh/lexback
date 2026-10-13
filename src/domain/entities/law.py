@@ -86,6 +86,7 @@ class LegalArticle(Base):
         UUID(as_uuid=True), ForeignKey("legal_structures.id", ondelete="SET NULL"), nullable=True
     )
     article_number: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    title: Mapped[str | None] = mapped_column(Text, nullable=True)
     full_content: Mapped[str] = mapped_column(Text, nullable=False)
     is_in_force: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     amendment_notes: Mapped[str | None] = mapped_column(Text, nullable=True)

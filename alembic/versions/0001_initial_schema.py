@@ -54,6 +54,7 @@ def upgrade() -> None:
         sa.Column('law_version_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('law_versions.id', ondelete='CASCADE'), nullable=False),
         sa.Column('structure_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('legal_structures.id', ondelete='SET NULL'), nullable=True),
         sa.Column('article_number', sa.String(50), nullable=False),
+        sa.Column('title', sa.Text(), nullable=True),
         sa.Column('full_content', sa.Text(), nullable=False),
         sa.Column('is_in_force', sa.Boolean(), nullable=False, server_default=sa.true()),
         sa.Column('amendment_notes', sa.Text(), nullable=True),
