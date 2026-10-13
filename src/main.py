@@ -15,6 +15,7 @@ from src.presentation.admin.views import (
     LegalStructureAdmin,
 )
 from src.presentation.api.v1.router import router as legal_router
+from src.presentation.api.v1.whatsapp_webhook import router as whatsapp_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -57,6 +58,7 @@ app.add_middleware(
 
 # Inclusion des routes API
 app.include_router(legal_router, prefix=settings.API_V1_STR)
+app.include_router(whatsapp_router, prefix=settings.API_V1_STR)
 
 
 @app.get("/health", tags=["Santé"])

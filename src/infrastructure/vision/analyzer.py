@@ -1,0 +1,112 @@
+import logging
+import os
+import tempfile
+from pathlib import Path
+from typing import Any
+
+from google import genai
+from google.genai import types
+
+from src.core.config import get_settings
+
+logger = logging.getLogger(__name__)
+settings = get_settings()
+
+
+class VisionAnalyzer:
+    """Service d'analyse visuelle et d'OCR pour les captures d'écran et images transmises par les usagers."""
+
+    def __init__(self, gemini_api_key: str | None = None):
+        self.api_key = gemini_api_key or settings.GEMINI_API_KEY
+        self.client: genai.Client | None = None
+        if self.api_key:
+            self.client = genai.Client(api_key=self.api_key)
+
+    async def analyze_image_file(self, image_path: str) -> dict[str, Any]:
+        """Extrait le texte et analyse le contexte d'une capture d'écran via Gemini Vision."""
+        path = Path(image_path)
+        if not path.exists():
+            raise FileNotFoundError(f"Fichier image introuvable: {image_path}")
+
+        if not self.client:
+            logger.info("Mode simulation actif pour l'analyse d'image.")
+            return {
+                "extracted_text": "Menace reçue sur WhatsApp: Envoie 100 000 FCFA ou je publie tes photos.",
+                "context": "Capture d'écran de conversation de messagerie instantanée contenant une tentative d'extorsion et de chantage.",
+                "formulated_question": (
+                    "Une personne menace de diffuser des photos intimes d'un individu en échange "
+                    "d'une somme d'argent sur WhatsApp. Que prévoit la loi béninoise ?"
+                ),
+            }
+
+        try:
+            with open(image_path, "rb") as f:
+                img_bytes = f.read()
+
+            suffix = path.suffix.lower()
+            mime_map = {
+                ".png": "image/png",
+                ".jpg": "image/jpeg",
+                ".jpeg": "image/jpeg",
+                ".webp": "image/webp",
+            }
+            mime_type = mime_map.get(suffix, "image/jpeg")
+
+            prompt = """Tu es un module OCR et d'analyse juridique d'images pour le Code du numérique du Bénin.
+Analyse cette capture d'écran ou photo :
+1. Extrais fidèlement tout le texte visible dans l'image.
+2. Décris brièvement le contexte (ex: conversation WhatsApp, statut Facebook, publication TikTok, SMS).
+3. Formule une question juridique précise en langage naturel résumant l'action ou l'acte litigieux visible dans l'image.
+
+Réponds sous le format JSON suivant :
+{
+    "extracted_text": "...",
+    "context": "...",
+    "formulated_question": "..."
+}"""
+
+            contents: Any = [
+                types.Part.from_bytes(data=img_bytes, mime_type=mime_type),
+                types.Part.from_text(text=prompt),
+            ]
+            response = self.client.models.generate_content(
+                model=settings.GEMINI_TEXT_MODEL,
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    temperature=0.1,
+                ),
+            )
+            text_resp = response.text or "{}"
+            import json
+
+            data = json.loads(text_resp)
+            return {
+                "extracted_text": data.get("extracted_text", ""),
+                "context": data.get("context", ""),
+                "formulated_question": data.get(
+                    "formulated_question",
+                    data.get("extracted_text", "Capture d'écran soumise pour avis juridique."),
+                ),
+            }
+        except Exception as e:
+            logger.error(f"Erreur lors de l'analyse d'image Gemini Vision: {e}")
+            raise
+
+    async def analyze_image_bytes(self, image_bytes: bytes, suffix: str = ".jpg") -> dict[str, Any]:
+        """Analyse des octets d'image avec suppression immédiate garantie (RG-JUR7)."""
+        tmp_path = ""
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            tmp.write(image_bytes)
+            tmp_path = tmp.name
+
+        try:
+            return await self.analyze_image_file(tmp_path)
+        finally:
+            # RG-JUR7 : Suppression immédiate et inconditionnelle des fichiers temporaires
+            if tmp_path and os.path.exists(tmp_path):
+                try:
+                    os.unlink(tmp_path)
+                    logger.debug(f"Fichier temporaire image supprimé: {tmp_path}")
+                except OSError as err:
+                    logger.warning(f"Impossible de supprimer le fichier image temporaire {tmp_path}: {err}")

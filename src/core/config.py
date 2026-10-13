@@ -51,9 +51,15 @@ class Settings(BaseSettings):
 
     # WhatsApp API
     WHATSAPP_VERIFY_TOKEN: str = "lexbenin_webhook_verify_token"
+    WHATSAPP_APP_SECRET: str = "meta_app_secret_key_change_in_production"
     WHATSAPP_ACCESS_TOKEN: str = ""
     WHATSAPP_PHONE_NUMBER_ID: str = ""
     WHATSAPP_API_VERSION: str = "v21.0"
+    WHATSAPP_API_BASE_URL: str = "https://graph.facebook.com"
+
+    # Multimodal & Médias
+    MAX_MEDIA_SIZE_MB: int = 16
+    TEMP_MEDIA_DIR: str = "/tmp"
 
 
 @lru_cache
