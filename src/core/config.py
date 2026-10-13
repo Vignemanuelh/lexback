@@ -1,5 +1,6 @@
 from functools import lru_cache
 from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -29,7 +30,7 @@ class Settings(BaseSettings):
         "postgresql+asyncpg://lexbenin:lexbenin_secret_pass@localhost:5432/lexbenin_db"
     )
     DATABASE_SYNC_URL: str = (
-        "postgresql://lexbenin:lexbenin_secret_pass@localhost:5432/lexbenin_db"
+        "postgresql+psycopg2://lexbenin:lexbenin_secret_pass@localhost:5432/lexbenin_db"
     )
 
     # Redis & File asynchrone
@@ -50,9 +51,15 @@ class Settings(BaseSettings):
 
     # WhatsApp API
     WHATSAPP_VERIFY_TOKEN: str = "lexbenin_webhook_verify_token"
+    WHATSAPP_APP_SECRET: str = "meta_app_secret_key_change_in_production"
     WHATSAPP_ACCESS_TOKEN: str = ""
     WHATSAPP_PHONE_NUMBER_ID: str = ""
     WHATSAPP_API_VERSION: str = "v21.0"
+    WHATSAPP_API_BASE_URL: str = "https://graph.facebook.com"
+
+    # Multimodal & Médias
+    MAX_MEDIA_SIZE_MB: int = 16
+    TEMP_MEDIA_DIR: str = "/tmp"
 
 
 @lru_cache

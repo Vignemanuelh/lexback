@@ -1,4 +1,5 @@
 from collections.abc import AsyncGenerator
+
 from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
@@ -14,6 +15,7 @@ settings = get_settings()
 
 class Base(DeclarativeBase):
     """Classe de base pour tous les modèles SQLAlchemy."""
+
     pass
 
 
@@ -33,6 +35,7 @@ AsyncSessionLocal = async_sessionmaker(
     expire_on_commit=False,
     autoflush=False,
 )
+async_session_factory = AsyncSessionLocal
 
 # Moteur synchrone pour SQLAdmin et les scripts de migration
 sync_engine = create_engine(

@@ -1,5 +1,7 @@
 import logging
+import re
 from typing import Any
+
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,20 +19,38 @@ class SearchResult:
         rrf_score: float,
         dense_rank: int | None = None,
         fts_rank: int | None = None,
+        is_exact_match: bool = False,
     ):
         self.article = article
         self.structure = structure
         self.rrf_score = rrf_score
         self.dense_rank = dense_rank
         self.fts_rank = fts_rank
+        self.is_exact_match = is_exact_match
 
 
 class HybridSearchEngine:
-    """Moteur de recherche hybride combinant BM25 (tsvector) et dense vectoriel (pgvector) avec RRF."""
+    """Moteur de recherche hybride combinant BM25 (tsvector) et dense vectoriel (pgvector)."""
 
-    def __init__(self, gemini_client: GeminiClient, rrf_k: int = 60):
+    ARTICLE_QUERY_REGEX = re.compile(r"(?:article|art\.?)\s*(\d+(?:[-–]\d+)?)", re.IGNORECASE)
+
+    def __init__(
+        self,
+        gemini_client: GeminiClient,
+        rrf_k: int = 60,
+        dense_weight: float = 1.0,
+        fts_weight: float = 1.0,
+        exact_boost: float = 2.0,
+    ):
         self.gemini_client = gemini_client
         self.rrf_k = rrf_k
+        self.dense_weight = dense_weight
+        self.fts_weight = fts_weight
+        self.exact_boost = exact_boost
+
+    def extract_queried_article_numbers(self, query: str) -> list[str]:
+        """Détecte si la requête mentionne explicitement un ou plusieurs numéros d'articles."""
+        return [m.strip() for m in self.ARTICLE_QUERY_REGEX.findall(query)]
 
     async def search(
         self,
@@ -54,8 +74,8 @@ class HybridSearchEngine:
             .join(ArticleEmbedding, LegalArticle.id == ArticleEmbedding.article_id)
             .outerjoin(LegalStructure, LegalArticle.structure_id == LegalStructure.id)
             .where(
-                LawVersion.is_active == True,
-                LegalArticle.is_in_force == True,
+                LawVersion.is_active.is_(True),
+                LegalArticle.is_in_force.is_(True),
             )
             .order_by("distance")
             .limit(dense_limit)
@@ -77,16 +97,16 @@ class HybridSearchEngine:
             .join(LawVersion, LegalArticle.law_version_id == LawVersion.id)
             .outerjoin(LegalStructure, LegalArticle.structure_id == LegalStructure.id)
             .where(
-                LawVersion.is_active == True,
-                LegalArticle.is_in_force == True,
-                LegalArticle.search_vector.op("@@")(
-                    func.plainto_tsquery("french", clean_query)
-                ),
+                LawVersion.is_active.is_(True),
+                LegalArticle.is_in_force.is_(True),
+                LegalArticle.search_vector.op("@@")(func.plainto_tsquery("french", clean_query)),
             )
-            .order_by(func.ts_rank_cd(
-                LegalArticle.search_vector,
-                func.plainto_tsquery("french", clean_query),
-            ).desc())
+            .order_by(
+                func.ts_rank_cd(
+                    LegalArticle.search_vector,
+                    func.plainto_tsquery("french", clean_query),
+                ).desc()
+            )
             .limit(fts_limit)
         )
         fts_res = await session.execute(fts_stmt)
@@ -95,19 +115,20 @@ class HybridSearchEngine:
         # 3. Reciprocal Rank Fusion (RRF)
         article_scores: dict[str, dict[str, Any]] = {}
 
-        for rank, (article, structure, dist) in enumerate(dense_hits, start=1):
+        for rank, (article, structure, _dist) in enumerate(dense_hits, start=1):
             art_id = str(article.id)
             article_scores[art_id] = {
                 "article": article,
                 "structure": structure,
-                "score": 1.0 / (self.rrf_k + rank),
+                "score": self.dense_weight * (1.0 / (self.rrf_k + rank)),
                 "dense_rank": rank,
                 "fts_rank": None,
+                "is_exact_match": False,
             }
 
-        for rank, (article, structure, rank_score) in enumerate(fts_hits, start=1):
+        for rank, (article, structure, _rank_score) in enumerate(fts_hits, start=1):
             art_id = str(article.id)
-            addition = 1.0 / (self.rrf_k + rank)
+            addition = self.fts_weight * (1.0 / (self.rrf_k + rank))
             if art_id in article_scores:
                 article_scores[art_id]["score"] += addition
                 article_scores[art_id]["fts_rank"] = rank
@@ -118,12 +139,41 @@ class HybridSearchEngine:
                     "score": addition,
                     "dense_rank": None,
                     "fts_rank": rank,
+                    "is_exact_match": False,
                 }
 
+        # 4. Boost des mentions exactes d'articles
+        queried_articles = self.extract_queried_article_numbers(query)
+        if queried_articles:
+            exact_stmt = (
+                select(LegalArticle, LegalStructure)
+                .join(LawVersion, LegalArticle.law_version_id == LawVersion.id)
+                .outerjoin(LegalStructure, LegalArticle.structure_id == LegalStructure.id)
+                .where(
+                    LawVersion.is_active.is_(True),
+                    LegalArticle.is_in_force.is_(True),
+                    LegalArticle.article_number.in_(queried_articles),
+                )
+            )
+            exact_res = await session.execute(exact_stmt)
+            exact_hits = exact_res.all()
+            for article, structure in exact_hits:
+                art_id = str(article.id)
+                if art_id in article_scores:
+                    article_scores[art_id]["score"] += self.exact_boost
+                    article_scores[art_id]["is_exact_match"] = True
+                else:
+                    article_scores[art_id] = {
+                        "article": article,
+                        "structure": structure,
+                        "score": self.exact_boost,
+                        "dense_rank": None,
+                        "fts_rank": None,
+                        "is_exact_match": True,
+                    }
+
         # Tri par score RRF décroissant
-        sorted_results = sorted(
-            article_scores.values(), key=lambda x: x["score"], reverse=True
-        )
+        sorted_results = sorted(article_scores.values(), key=lambda x: x["score"], reverse=True)
 
         return [
             SearchResult(
@@ -132,6 +182,7 @@ class HybridSearchEngine:
                 rrf_score=item["score"],
                 dense_rank=item["dense_rank"],
                 fts_rank=item["fts_rank"],
+                is_exact_match=item.get("is_exact_match", False),
             )
             for item in sorted_results[:top_k]
         ]

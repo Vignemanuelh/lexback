@@ -6,6 +6,7 @@ from src.domain.entities.law import LawVersion, LegalArticle, LegalStructure
 
 class LawVersionAdmin(ModelView, model=LawVersion):
     """Vue d'administration des versions du Code du numérique."""
+
     name = "Version de Loi"
     name_plural = "Versions du Code"
     icon = "fa-solid fa-book"
@@ -25,6 +26,7 @@ class LawVersionAdmin(ModelView, model=LawVersion):
 
 class LegalStructureAdmin(ModelView, model=LegalStructure):
     """Vue d'administration de la structure hiérarchique du Code."""
+
     name = "Structure Juridique"
     name_plural = "Structures (Livres/Titres/Chapitres)"
     icon = "fa-solid fa-sitemap"
@@ -39,6 +41,7 @@ class LegalStructureAdmin(ModelView, model=LegalStructure):
 
 class LegalArticleAdmin(ModelView, model=LegalArticle):
     """Vue d'administration des articles individuels."""
+
     name = "Article du Code"
     name_plural = "Articles de Loi"
     icon = "fa-solid fa-scale-balanced"
@@ -56,6 +59,7 @@ class LegalArticleAdmin(ModelView, model=LegalArticle):
 
 class CitizenInteractionAdmin(ModelView, model=CitizenInteraction):
     """Vue d'audit des questions et réponses posées par les usagers."""
+
     name = "Interaction Citoyenne"
     name_plural = "Historique des Échanges"
     icon = "fa-solid fa-comments"
@@ -80,6 +84,7 @@ class CitizenInteractionAdmin(ModelView, model=CitizenInteraction):
 
 class LegalEscalationAdmin(ModelView, model=LegalEscalation):
     """Vue d'escalade et traitement des cas ambigus par les juristes."""
+
     name = "Dossier d'Escalade"
     name_plural = "Escalades Juridiques"
     icon = "fa-solid fa-user-shield"

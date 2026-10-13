@@ -1,0 +1,200 @@
+[
+  {
+    "id": "CASE-01",
+    "question": "Puis-je filmer ou photographier une personne dans la rue ou lors d'une fête privée et poster la vidéo sur TikTok sans son consentement ?",
+    "domain": "vie_privee",
+    "expected_status": "interdit",
+    "expected_articles": ["552"],
+    "must_escalate": false,
+    "rationale": "L'article 552 du Code du numérique punit expressément la captation, l'enregistrement ou la diffusion de l'image ou de la voix d'une personne sans son consentement préalable."
+  },
+  {
+    "id": "CASE-02",
+    "question": "Un ex-conjoint m'envoie des dizaines de messages insultants et menaçants chaque jour sur WhatsApp. Est-ce puni par la loi béninoise ?",
+    "domain": "cybercriminalite",
+    "expected_status": "interdit",
+    "expected_articles": ["550"],
+    "must_escalate": false,
+    "rationale": "L'article 550 sanctionne le harcèlement par le biais d'une communication électronique et les communications répétées de nature à troubler la tranquillité."
+  },
+  {
+    "id": "CASE-03",
+    "question": "Est-ce légal de créer un faux profil sur les réseaux sociaux sous l'identité de mon professeur ou d'un collègue pour lui faire une blague ?",
+    "domain": "cybercriminalite",
+    "expected_status": "interdit",
+    "expected_articles": ["558"],
+    "must_escalate": false,
+    "rationale": "L'usurpation d'identité en ligne et l'utilisation de données permettant d'identifier un tiers constituent un délit puni par le Code du numérique."
+  },
+  {
+    "id": "CASE-04",
+    "question": "J'ai reçu un message affirmant qu'une grande banque de Cotonou fait faillite, puis-je le transférer dans des groupes de discussion WhatsApp ?",
+    "domain": "cybercriminalite",
+    "expected_status": "interdit",
+    "expected_articles": ["550"],
+    "must_escalate": false,
+    "rationale": "La publication ou le partage de fausses nouvelles de nature à troubler la paix publique ou la confiance économique est réprimé par l'article 550."
+  },
+  {
+    "id": "CASE-05",
+    "question": "Une personne menace de diffuser des photos intimes de moi si je ne lui transfère pas de l'argent par Mobile Money. Que prévoit le Code ?",
+    "domain": "cybercriminalite",
+    "expected_status": "interdit",
+    "expected_articles": ["550", "552"],
+    "must_escalate": false,
+    "rationale": "Le chantage et la menace de diffusion de contenus intimes sont lourdement sanctionnés par les articles 550 et 552."
+  },
+  {
+    "id": "CASE-06",
+    "question": "Un agent de centre médical a-t-il le droit de publier sur Facebook la liste des personnes déclarées positives à une maladie ?",
+    "domain": "donnees_personnelles",
+    "expected_status": "interdit",
+    "expected_articles": ["361", "441"],
+    "must_escalate": false,
+    "rationale": "Les données de santé sont des données hautement sensibles soumises à un régime strict de confidentialité par les articles 361 et 441."
+  },
+  {
+    "id": "CASE-07",
+    "question": "Une société commerciale m'envoie quotidiennement des SMS promotionnels non sollicités sans que je n'aie jamais donné mon accord préalable. Est-ce permis ?",
+    "domain": "commerce_electronique",
+    "expected_status": "interdit",
+    "expected_articles": ["303"],
+    "must_escalate": false,
+    "rationale": "L'article 303 interdit la prospection directe par courrier électronique ou SMS sans le consentement préalable de l'abonné (système de l'opt-in)."
+  },
+  {
+    "id": "CASE-08",
+    "question": "Ai-je le droit légal d'exiger d'une application mobile béninoise qu'elle supprime l'ensemble de mes données personnelles de ses serveurs ?",
+    "domain": "donnees_personnelles",
+    "expected_status": "autorisé",
+    "expected_articles": ["418", "422"],
+    "must_escalate": false,
+    "rationale": "Les articles 418 et suivants consacrent le droit de toute personne physique à l'effacement et à la rectification de ses données personnelles auprès de tout responsable de traitement."
+  },
+  {
+    "id": "CASE-09",
+    "question": "Un contrat d'affaires signé au moyen d'une signature électronique sécurisée a-t-il la même force probante qu'une signature manuscrite devant les tribunaux ?",
+    "domain": "confiance_numerique",
+    "expected_status": "autorisé",
+    "expected_articles": ["242", "257"],
+    "must_escalate": false,
+    "rationale": "Le Code du numérique reconnaît expressément la validité et la force probante de l'écrit et de la signature électroniques qualifiés à l'égal d'un acte manuscrit."
+  },
+  {
+    "id": "CASE-10",
+    "question": "J'ai passé commande sur une boutique en ligne béninoise mais le vendeur refuse d'indiquer son identité juridique, son adresse et ses conditions de rétractation. Est-ce légal ?",
+    "domain": "commerce_electronique",
+    "expected_status": "interdit",
+    "expected_articles": ["309"],
+    "must_escalate": false,
+    "rationale": "L'article 309 impose aux fournisseurs de biens et services en ligne une obligation stricte d'information préalable sur leur identité, leurs prix et les modalités de retour."
+  },
+  {
+    "id": "CASE-11",
+    "question": "Un citoyen a-t-il le droit d'utiliser des logiciels de cryptologie et des messageries chiffrées de bout en bout pour protéger sa correspondance privée ?",
+    "domain": "securite_numerique",
+    "expected_status": "autorisé",
+    "expected_articles": ["577"],
+    "must_escalate": false,
+    "rationale": "L'utilisation de moyens de cryptologie pour assurer la confidentialité des communications est libre au regard du Livre VI du Code."
+  },
+  {
+    "id": "CASE-12",
+    "question": "Quelqu'un s'est introduit dans la boîte email de son supérieur hiérarchique en devinant son mot de passe pour lire des documents confidentiels. Que dit la loi ?",
+    "domain": "cybercriminalite",
+    "expected_status": "interdit",
+    "expected_articles": ["488"],
+    "must_escalate": false,
+    "rationale": "L'article 488 érige en infraction d'accès illégal toute pénétration sans droit dans un système d'information."
+  },
+  {
+    "id": "CASE-13",
+    "question": "Un administrateur système en litige avec sa hiérarchie efface délibérément les sauvegardes informatiques de l'entreprise avant de partir. Quelle est la qualification ?",
+    "domain": "cybercriminalite",
+    "expected_status": "interdit",
+    "expected_articles": ["491"],
+    "must_escalate": false,
+    "rationale": "L'atteinte délibérée à l'intégrité des données et l'effacement sans droit sont punis au titre des atteintes aux systèmes d'information."
+  },
+  {
+    "id": "CASE-14",
+    "question": "Est-il permis d'enregistrer une conversation téléphonique avec un interlocuteur à son insu et de la diffuser publiquement sur un forum web ?",
+    "domain": "vie_privee",
+    "expected_status": "interdit",
+    "expected_articles": ["552"],
+    "must_escalate": false,
+    "rationale": "La captation et la diffusion des paroles d'une personne sans son consentement préalable constituent une atteinte punissable à la vie privée."
+  },
+  {
+    "id": "CASE-15",
+    "question": "Traiter publiquement une personne d'escroc ou de voleur sur un groupe Facebook comptant des milliers de membres sans jugement judiciaire est-il puni ?",
+    "domain": "cybercriminalite",
+    "expected_status": "interdit",
+    "expected_articles": ["558"],
+    "must_escalate": false,
+    "rationale": "L'article 558 réprime la diffamation et les infractions commises par le biais d'un moyen de communication électronique."
+  },
+  {
+    "id": "CASE-16",
+    "question": "Puis-je installer furtivement une application de traçage GPS sur le téléphone de mon partenaire pour surveiller ses déplacements ?",
+    "domain": "vie_privee",
+    "expected_status": "interdit",
+    "expected_articles": ["488", "552"],
+    "must_escalate": false,
+    "rationale": "L'installation non consentie de dispositifs de captation ou de traçage constitue à la fois un accès frauduleux et une atteinte à la vie privée."
+  },
+  {
+    "id": "CASE-17",
+    "question": "Est-il risqué de télécharger une œuvre protégée par le droit d'auteur sur un site pirate même si c'est pour un visionnage personnel ?",
+    "domain": "propriete_intellectuelle",
+    "expected_status": "à risque",
+    "expected_articles": ["510"],
+    "must_escalate": false,
+    "rationale": "La reproduction sans droit d'une œuvre de l'esprit est susceptible de caractériser la contrefaçon selon les articles 510 et suivants."
+  },
+  {
+    "id": "CASE-18",
+    "question": "Puis-je créer et exploiter une boutique de vente en ligne au Bénin en affichant mes mentions légales, numéro RCCM, IFU et politique de données ?",
+    "domain": "commerce_electronique",
+    "expected_status": "autorisé",
+    "expected_articles": ["296", "309"],
+    "must_escalate": false,
+    "rationale": "Le commerce électronique est libre sous réserve de respecter les formalités d'identification et d'information précontractuelle prévues aux articles 296 et 309."
+  },
+  {
+    "id": "CASE-19",
+    "question": "Un commerçant peut-il installer des caméras de vidéosurveillance dans son magasin pour la sécurité des biens en plaçant un panneau visible ?",
+    "domain": "donnees_personnelles",
+    "expected_status": "autorisé",
+    "expected_articles": ["344", "387"],
+    "must_escalate": false,
+    "rationale": "Le traitement de données d'images pour la sécurité des biens est licite sous réserve d'information claire préalable et de conformité aux directives de l'APDP."
+  },
+  {
+    "id": "CASE-20",
+    "question": "Un hacker canadien situé à Tokyo a piraté un portefeuille crypto stocké sur un serveur aux Bahamas appartenant à un ressortissant suisse résidant au Bénin. Comment le Code du numérique s'applique-t-il ?",
+    "domain": "conflit_lois_international",
+    "expected_status": "zone grise",
+    "expected_articles": [],
+    "must_escalate": true,
+    "rationale": "Litige transfrontalier complexe à forte composante de droit international privé et de compétence extraterritoriale : escalade obligatoire vers un juriste référent."
+  },
+  {
+    "id": "CASE-21",
+    "question": "L'utilisation d'un modèle d'intelligence artificielle générative pour créer des avatars 3D est-elle explicitement encadrée par le Code du numérique béninois de 2018 ?",
+    "domain": "technologies_emergentes",
+    "expected_status": "zone grise",
+    "expected_articles": [],
+    "must_escalate": true,
+    "rationale": "Le Code du numérique de 2018 ne comporte pas de régime dédié spécifique aux modèles d'IA générative : qualification incertaine nécessitant une analyse doctrinale et un avis de juriste."
+  },
+  {
+    "id": "CASE-22",
+    "question": "Un employeur peut-il fouiller sans préavis les messages privés d'un candidat sur les réseaux sociaux lors d'un processus d'embauche ?",
+    "domain": "donnees_personnelles",
+    "expected_status": "à risque",
+    "expected_articles": ["344"],
+    "must_escalate": false,
+    "rationale": "La collecte d'informations personnelles doit être proportionnée à la finalité du recrutement et respecter la vie privée du candidat sous peine d'illicéité du traitement."
+  }
+]
