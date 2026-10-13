@@ -1,6 +1,9 @@
+import json
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.guardrails.citation_guardrail import CitationGuardrail
@@ -15,6 +18,8 @@ from src.domain.schemas.rag import (
 )
 from src.infrastructure.llm.gemini_client import GeminiClient
 from src.infrastructure.search.hybrid_search import HybridSearchEngine
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/legal", tags=["Assistant Juridique Citoyen"])
 
@@ -48,6 +53,100 @@ async def ask_legal_question(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erreur lors du traitement de la requête juridique : {e!s}",
         ) from e
+
+
+@router.post(
+    "/ask/stream",
+    summary="Poser une question juridique avec réponse en flux continu (Server-Sent Events)",
+)
+async def ask_legal_question_stream(
+    request: LegalQuestionRequest,
+    session: AsyncSession = Depends(get_db_session),
+    use_case: AskLegalQuestionUseCase = Depends(get_ask_use_case),
+):
+    """Interroge le moteur RAG et émet les étapes et tokens en temps réel via SSE."""
+
+    async def event_generator():
+        try:
+            # Étape 1 : Recherche
+            yield (
+                "data: "
+                + json.dumps({
+                    "type": "status",
+                    "stage": "searching",
+                    "message": "Recherche dans les 646 articles du Code du numérique...",
+                })
+                + "\n\n"
+            )
+
+            response = await use_case.execute(session=session, request=request)
+
+            # Étape 2 : Sources identifiées
+            yield (
+                "data: "
+                + json.dumps({
+                    "type": "sources",
+                    "articles": response.articles_cites,
+                    "sources": [s.model_dump() for s in response.sources],
+                })
+                + "\n\n"
+            )
+
+            # Étape 3 : Émission progressive du texte
+            words = response.explication_vulgarisee.split(" ")
+            chunk = []
+            for word in words:
+                chunk.append(word)
+                if len(chunk) >= 5:
+                    yield (
+                        "data: "
+                        + json.dumps({
+                            "type": "token",
+                            "token": " ".join(chunk) + " ",
+                        })
+                        + "\n\n"
+                    )
+                    chunk = []
+            if chunk:
+                yield (
+                    "data: "
+                    + json.dumps({
+                        "type": "token",
+                        "token": " ".join(chunk),
+                    })
+                    + "\n\n"
+                )
+
+            # Étape 4 : Événement complet
+            yield (
+                "data: "
+                + json.dumps({
+                    "type": "complete",
+                    "response": response.model_dump(),
+                })
+                + "\n\n"
+            )
+
+        except Exception as err:
+            logger.error(f"Erreur flux SSE: {err}", exc_info=True)
+            yield (
+                "data: "
+                + json.dumps({
+                    "type": "error",
+                    "message": f"Erreur de traitement: {err!s}",
+                })
+                + "\n\n"
+            )
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.post(

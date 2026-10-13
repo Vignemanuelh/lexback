@@ -35,6 +35,7 @@ AsyncSessionLocal = async_sessionmaker(
     expire_on_commit=False,
     autoflush=False,
 )
+async_session_factory = AsyncSessionLocal
 
 # Moteur synchrone pour SQLAdmin et les scripts de migration
 sync_engine = create_engine(
