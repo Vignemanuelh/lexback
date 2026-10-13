@@ -1,7 +1,8 @@
-import re
 import logging
+import re
 from dataclasses import dataclass
 from datetime import date
+
 from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,7 +10,6 @@ from src.domain.entities.law import (
     ArticleEmbedding,
     LawVersion,
     LegalArticle,
-    LegalStructure,
 )
 from src.infrastructure.llm.gemini_client import GeminiClient
 
@@ -96,7 +96,9 @@ class LawIngestionUseCase:
                 article_number=parsed.article_number,
                 full_content=parsed.content,
                 is_in_force=True,
-                search_vector=func.to_tsvector("french", f"Article {parsed.article_number} {parsed.content}"),
+                search_vector=func.to_tsvector(
+                    "french", f"Article {parsed.article_number} {parsed.content}"
+                ),
             )
             session.add(article)
             await session.flush()

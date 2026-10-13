@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -44,8 +46,8 @@ async def ask_legal_question(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erreur lors du traitement de la requête juridique : {str(e)}",
-        )
+            detail=f"Erreur lors du traitement de la requête juridique : {e!s}",
+        ) from e
 
 
 @router.post(
@@ -57,7 +59,14 @@ async def submit_feedback(
     request: CitizenFeedbackRequest,
     session: AsyncSession = Depends(get_db_session),
 ):
-    interaction = await session.get(CitizenInteraction, request.interaction_id)
+    try:
+        interaction_uuid = uuid.UUID(request.interaction_id)
+    except ValueError as err:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="ID d'interaction invalide."
+        ) from err
+
+    interaction = await session.get(CitizenInteraction, interaction_uuid)
     if not interaction:
         raise HTTPException(status_code=404, detail="Interaction non trouvée.")
 
@@ -83,7 +92,12 @@ async def create_escalation(
         status="PENDING",
     )
     if request.interaction_id:
-        escalation.interaction_id = request.interaction_id
+        try:
+            escalation.interaction_id = uuid.UUID(request.interaction_id)
+        except ValueError as err:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="ID d'interaction invalide."
+            ) from err
 
     session.add(escalation)
     await session.commit()
@@ -104,18 +118,33 @@ async def get_faq():
             "question": "Puis-je publier la photo d'une personne sans son accord préalable ?",
             "statut_legal": "interdit",
             "article": "Article 552",
-            "resume": "La captation, l'enregistrement ou la diffusion de l'image d'une personne dans un lieu privé ou public sans son consentement exprès est punie par la loi.",
+            "resume": (
+                "La captation, l'enregistrement ou la diffusion de l'image d'une personne "
+                "dans un lieu privé ou public sans son consentement exprès est punie par la loi."
+            ),
         },
         {
-            "question": "Est-ce une infraction de créer un faux profil sur les réseaux sociaux sous le nom d'un camarade ?",
+            "question": (
+                "Est-ce une infraction de créer un faux profil sur les réseaux sociaux "
+                "sous le nom d'un camarade ?"
+            ),
             "statut_legal": "interdit",
             "article": "Article 558",
-            "resume": "L'usurpation d'identité numérique et l'utilisation de données permettant d'identifier un tiers dans le but de troubler sa tranquillité constituent un délit.",
+            "resume": (
+                "L'usurpation d'identité numérique et l'utilisation de données permettant "
+                "d'identifier un tiers dans le but de troubler sa tranquillité constituent un délit."
+            ),
         },
         {
-            "question": "Que risque-t-on en partageant une information non vérifiée (fake news) qui porte atteinte à une entreprise ou un individu ?",
+            "question": (
+                "Que risque-t-on en partageant une information non vérifiée (fake news) "
+                "qui porte atteinte à une entreprise ou un individu ?"
+            ),
             "statut_legal": "interdit",
             "article": "Article 550",
-            "resume": "La publication ou le partage de fausses nouvelles de nature à troubler la paix publique ou à porter atteinte à l'honneur d'autrui est sévèrement sanctionné.",
+            "resume": (
+                "La publication ou le partage de fausses nouvelles de nature à troubler la paix "
+                "publique ou à porter atteinte à l'honneur d'autrui est sévèrement sanctionné."
+            ),
         },
     ]

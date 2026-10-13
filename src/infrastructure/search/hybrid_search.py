@@ -1,5 +1,6 @@
 import logging
 from typing import Any
+
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,7 +27,7 @@ class SearchResult:
 
 
 class HybridSearchEngine:
-    """Moteur de recherche hybride combinant BM25 (tsvector) et dense vectoriel (pgvector) avec RRF."""
+    """Moteur de recherche hybride combinant BM25 (tsvector) et dense vectoriel (pgvector)."""
 
     def __init__(self, gemini_client: GeminiClient, rrf_k: int = 60):
         self.gemini_client = gemini_client
@@ -54,8 +55,8 @@ class HybridSearchEngine:
             .join(ArticleEmbedding, LegalArticle.id == ArticleEmbedding.article_id)
             .outerjoin(LegalStructure, LegalArticle.structure_id == LegalStructure.id)
             .where(
-                LawVersion.is_active == True,
-                LegalArticle.is_in_force == True,
+                LawVersion.is_active.is_(True),
+                LegalArticle.is_in_force.is_(True),
             )
             .order_by("distance")
             .limit(dense_limit)
@@ -77,16 +78,16 @@ class HybridSearchEngine:
             .join(LawVersion, LegalArticle.law_version_id == LawVersion.id)
             .outerjoin(LegalStructure, LegalArticle.structure_id == LegalStructure.id)
             .where(
-                LawVersion.is_active == True,
-                LegalArticle.is_in_force == True,
-                LegalArticle.search_vector.op("@@")(
-                    func.plainto_tsquery("french", clean_query)
-                ),
+                LawVersion.is_active.is_(True),
+                LegalArticle.is_in_force.is_(True),
+                LegalArticle.search_vector.op("@@")(func.plainto_tsquery("french", clean_query)),
             )
-            .order_by(func.ts_rank_cd(
-                LegalArticle.search_vector,
-                func.plainto_tsquery("french", clean_query),
-            ).desc())
+            .order_by(
+                func.ts_rank_cd(
+                    LegalArticle.search_vector,
+                    func.plainto_tsquery("french", clean_query),
+                ).desc()
+            )
             .limit(fts_limit)
         )
         fts_res = await session.execute(fts_stmt)
@@ -95,7 +96,7 @@ class HybridSearchEngine:
         # 3. Reciprocal Rank Fusion (RRF)
         article_scores: dict[str, dict[str, Any]] = {}
 
-        for rank, (article, structure, dist) in enumerate(dense_hits, start=1):
+        for rank, (article, structure, _dist) in enumerate(dense_hits, start=1):
             art_id = str(article.id)
             article_scores[art_id] = {
                 "article": article,
@@ -105,7 +106,7 @@ class HybridSearchEngine:
                 "fts_rank": None,
             }
 
-        for rank, (article, structure, rank_score) in enumerate(fts_hits, start=1):
+        for rank, (article, structure, _rank_score) in enumerate(fts_hits, start=1):
             art_id = str(article.id)
             addition = 1.0 / (self.rrf_k + rank)
             if art_id in article_scores:
@@ -121,9 +122,7 @@ class HybridSearchEngine:
                 }
 
         # Tri par score RRF décroissant
-        sorted_results = sorted(
-            article_scores.values(), key=lambda x: x["score"], reverse=True
-        )
+        sorted_results = sorted(article_scores.values(), key=lambda x: x["score"], reverse=True)
 
         return [
             SearchResult(

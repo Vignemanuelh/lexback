@@ -1,5 +1,6 @@
 from functools import lru_cache
 from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -29,7 +30,7 @@ class Settings(BaseSettings):
         "postgresql+asyncpg://lexbenin:lexbenin_secret_pass@localhost:5432/lexbenin_db"
     )
     DATABASE_SYNC_URL: str = (
-        "postgresql://lexbenin:lexbenin_secret_pass@localhost:5432/lexbenin_db"
+        "postgresql+psycopg2://lexbenin:lexbenin_secret_pass@localhost:5432/lexbenin_db"
     )
 
     # Redis & File asynchrone

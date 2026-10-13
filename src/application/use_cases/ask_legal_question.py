@@ -1,7 +1,7 @@
 import hashlib
 import logging
-from typing import Optional
-from langfuse import get_client, observe
+
+from langfuse import observe
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.guardrails.citation_guardrail import CitationGuardrail
@@ -47,7 +47,7 @@ class AskLegalQuestionUseCase:
         self.search_engine = search_engine
         self.guardrail = guardrail
 
-    def _hash_user_id(self, user_id: Optional[str]) -> str:
+    def _hash_user_id(self, user_id: str | None) -> str:
         if not user_id:
             return "anonymous"
         return hashlib.sha256(user_id.encode("utf-8")).hexdigest()
@@ -100,7 +100,8 @@ class AskLegalQuestionUseCase:
                     "relative à cette situation particulière."
                 ),
                 conseil_pratique=(
-                    "En cas de doute, abstenez-vous de poser cet acte en ligne et consultez un professionnel du droit."
+                    "En cas de doute, abstenez-vous de poser cet acte en ligne "
+                    "et consultez un professionnel du droit."
                 ),
                 necessite_escalade=True,
             )
