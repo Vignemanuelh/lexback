@@ -135,6 +135,8 @@ async def test_process_whatsapp_audio_message():
         )
     )
     mock_sender = MagicMock()
+    mock_sender.download_media = AsyncMock(return_value=b"audio_bytes")
+    mock_sender.send_audio_message = AsyncMock(return_value={"status": "sent"})
     mock_sender.send_legal_response = AsyncMock(return_value={"status": "sent"})
     mock_transcriber = MagicMock()
     mock_transcriber.transcribe_bytes = AsyncMock(return_value="Puis-je chiffrer mes emails ?")
@@ -165,7 +167,67 @@ async def test_process_whatsapp_audio_message():
     result = await use_case.execute(session=mock_session, payload=payload)
 
     assert result["status"] == "processed"
+    mock_sender.download_media.assert_called_once_with("media-audio-123")
     mock_transcriber.transcribe_bytes.assert_called_once()
+    mock_ask.execute.assert_called_once()
+    mock_sender.send_audio_message.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_process_whatsapp_image_message():
+    mock_ask = MagicMock()
+    mock_ask.execute = AsyncMock(
+        return_value=LegalQuestionResponse(
+            interaction_id="uuid-3",
+            statut_legal=LegalStatus.A_RISQUE,
+            articles_cites=["Article 552"],
+            explication_vulgarisee="Attention",
+            conseil_pratique="Demandez le consentement",
+            avertissement_legal="Legal",
+            necessite_escalade=False,
+        )
+    )
+    mock_sender = MagicMock()
+    mock_sender.download_media = AsyncMock(return_value=b"image_bytes")
+    mock_sender.send_legal_response = AsyncMock(return_value={"status": "sent"})
+    mock_transcriber = MagicMock()
+    mock_vision = MagicMock()
+    mock_vision.analyze_image_bytes = AsyncMock(
+        return_value={
+            "extracted_text": "Texte extrait",
+            "formulated_question": "Est-ce légal de publier ceci ?",
+            "contains_identifiable_person": True,
+            "is_potential_ai_or_manipulated": False,
+        }
+    )
+
+    use_case = ProcessWhatsAppMessageUseCase(
+        ask_use_case=mock_ask,
+        whatsapp_sender=mock_sender,
+        transcriber=mock_transcriber,
+        vision_analyzer=mock_vision,
+    )
+
+    payload = {
+        "entry": [{
+            "changes": [{
+                "value": {
+                    "messages": [{
+                        "from": "22997112233",
+                        "type": "image",
+                        "image": {"id": "media-img-456", "caption": "Capture d'un groupe"},
+                    }]
+                }
+            }]
+        }]
+    }
+
+    mock_session = AsyncMock()
+    result = await use_case.execute(session=mock_session, payload=payload)
+
+    assert result["status"] == "processed"
+    mock_sender.download_media.assert_called_once_with("media-img-456")
+    mock_vision.analyze_image_bytes.assert_called_once()
     mock_ask.execute.assert_called_once()
 
 
@@ -201,7 +263,15 @@ async def test_process_whatsapp_interactive_button_escalation():
     }
 
     mock_session = AsyncMock()
+    mock_session.add = MagicMock()
+    mock_res = MagicMock()
+    mock_res.scalar_one_or_none.return_value = None
+    mock_session.execute = AsyncMock(return_value=mock_res)
+    mock_session.commit = AsyncMock()
+
     result = await use_case.execute(session=mock_session, payload=payload)
 
     assert result["status"] == "escalation_acknowledged"
+    assert "escalation_id" in result
+    mock_session.add.assert_called_once()
     mock_sender.send_text_message.assert_called_once()
