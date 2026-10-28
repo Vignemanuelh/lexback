@@ -14,9 +14,13 @@ if current_dir not in sys.path:
 
 try:
     from a2wsgi import ASGIMiddleware
+
     from src.main import app
 
     application = ASGIMiddleware(app)
 except ImportError:
     # Si a2wsgi n'est pas encore installé, exposition directe de l'application ASGI
-    from src.main import app as application
+    from src.main import app as application  # noqa: F401
+
+__all__ = ["application"]
+

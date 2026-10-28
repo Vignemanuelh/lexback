@@ -7,6 +7,7 @@ from sqladmin import Admin
 
 from src.core.config import get_settings
 from src.core.database import async_engine, sync_engine
+from src.core.logging import setup_logging
 from src.presentation.admin.views import (
     CitizenInteractionAdmin,
     LawVersionAdmin,
@@ -28,6 +29,7 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     """Cycle de vie de l'application FastAPI (démarrage et extinction)."""
+    setup_logging()
     logger.info("Démarrage du service LEXBENIN - Assistant Numérique Citoyen...")
     # Vérification ou initialisation de ressources au démarrage
     yield

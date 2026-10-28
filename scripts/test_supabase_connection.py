@@ -6,16 +6,16 @@ Usage:
 """
 
 import asyncio
-import os
 import sys
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 
-from sqlalchemy import text
-from src.core.config import get_settings
-from src.core.database import AsyncSessionLocal, init_db
+from sqlalchemy import text  # noqa: E402
+
+from src.core.config import get_settings  # noqa: E402
+from src.core.database import AsyncSessionLocal, init_db  # noqa: E402
 
 
 async def check_database():

@@ -1,13 +1,18 @@
+import contextlib
 import json
 import logging
+import os
+import tempfile
 import uuid
+from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.guardrails.citation_guardrail import CitationGuardrail
 from src.application.use_cases.ask_legal_question import AskLegalQuestionUseCase
+from src.application.use_cases.ingest_law import IngestLawUseCase
 from src.core.database import get_db_session
 from src.domain.entities.interaction import CitizenInteraction, LegalEscalation
 from src.domain.schemas.rag import (
@@ -257,3 +262,56 @@ async def get_faq():
             ),
         },
     ]
+
+
+@router.post(
+    "/admin/corpus/upload",
+    summary="Charger ou mettre à jour un corpus de loi (format JSON structuré)",
+    tags=["Administration Corpus"],
+)
+async def upload_corpus(
+    file: UploadFile = File(...),
+    session: AsyncSession = Depends(get_db_session),
+):
+    """Permet à un administrateur d'ingérer une nouvelle version du Code sans intervention serveur (Section 4.3 CdC)."""
+    if not file.filename or not file.filename.endswith(".json"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Seuls les fichiers .json structurés sont acceptés pour l'ingestion.",
+        )
+
+    content = await file.read()
+    tmp_path = ""
+    with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tmp:
+        tmp.write(content)
+        tmp_path = tmp.name
+
+    try:
+        gemini_client = GeminiClient()
+        use_case = IngestLawUseCase(gemini_client=gemini_client)
+        report = await use_case.ingest_from_json(
+            session=session,
+            json_path=Path(tmp_path),
+            compute_embeddings=False,
+        )
+        return {
+            "status": "success",
+            "code_name": report.code_name,
+            "official_reference": report.official_reference,
+            "total_articles": report.total_articles,
+            "created_articles": report.created_articles,
+            "updated_articles": report.updated_articles,
+            "total_structures": report.total_structures,
+            "created_structures": report.created_structures,
+        }
+    except Exception as e:
+        logger.error(f"Erreur lors de l'ingestion du corpus: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur d'ingestion : {e!s}",
+        ) from e
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            with contextlib.suppress(OSError):
+                os.unlink(tmp_path)
+

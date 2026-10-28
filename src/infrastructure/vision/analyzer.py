@@ -33,6 +33,8 @@ class VisionAnalyzer:
             return {
                 "extracted_text": "Menace reçue sur WhatsApp: Envoie 100 000 FCFA ou je publie tes photos.",
                 "context": "Capture d'écran de conversation de messagerie instantanée contenant une tentative d'extorsion et de chantage.",
+                "contains_identifiable_person": True,
+                "is_potential_ai_or_manipulated": False,
                 "formulated_question": (
                     "Une personne menace de diffuser des photos intimes d'un individu en échange "
                     "d'une somme d'argent sur WhatsApp. Que prévoit la loi béninoise ?"
@@ -56,12 +58,16 @@ class VisionAnalyzer:
 Analyse cette capture d'écran ou photo :
 1. Extrais fidèlement tout le texte visible dans l'image.
 2. Décris brièvement le contexte (ex: conversation WhatsApp, statut Facebook, publication TikTok, SMS).
-3. Formule une question juridique précise en langage naturel résumant l'action ou l'acte litigieux visible dans l'image.
+3. Détecte si l'image implique une ou plusieurs personnes identifiables (photo réelle ou capture), et évalue l'enjeu du consentement et de l'atteinte à la vie privée / droit à l'image.
+4. Repère si l'image présente des indices de trucage, photomontage, caricature ou génération artificielle par IA (deepfake) de nature à constituer une usurpation d'identité, diffamation ou fausse nouvelle.
+5. Formule une question juridique précise en langage naturel résumant l'action ou l'acte litigieux visible dans l'image en intégrant les risques spécifiques détectés.
 
 Réponds sous le format JSON suivant :
 {
     "extracted_text": "...",
     "context": "...",
+    "contains_identifiable_person": true,
+    "is_potential_ai_or_manipulated": false,
     "formulated_question": "..."
 }"""
 
@@ -84,6 +90,8 @@ Réponds sous le format JSON suivant :
             return {
                 "extracted_text": data.get("extracted_text", ""),
                 "context": data.get("context", ""),
+                "contains_identifiable_person": bool(data.get("contains_identifiable_person", False)),
+                "is_potential_ai_or_manipulated": bool(data.get("is_potential_ai_or_manipulated", False)),
                 "formulated_question": data.get(
                     "formulated_question",
                     data.get("extracted_text", "Capture d'écran soumise pour avis juridique."),
