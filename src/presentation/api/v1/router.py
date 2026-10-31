@@ -224,42 +224,95 @@ async def create_escalation(
     }
 
 
-@router.get("/faq", summary="Consulter la foire aux questions pré-validées")
+@router.get("/faq", summary="Consulter la foire aux questions sur l'utilisation de LexBénin")
 async def get_faq():
-    """Renvoie les questions courantes pré-validées par le juriste référent."""
+    """Renvoie les questions d'utilisation et de fonctionnement de la plateforme (style America.gov)."""
     return [
         {
-            "question": "Puis-je publier la photo d'une personne sans son accord préalable ?",
-            "statut_legal": "interdit",
-            "article": "Article 552",
-            "resume": (
-                "La captation, l'enregistrement ou la diffusion de l'image d'une personne "
-                "dans un lieu privé ou public sans son consentement exprès est punie par la loi."
+            "question": "Qu'est-ce que LexBénin et quelle est sa mission ?",
+            "statut_legal": "autorisé",
+            "article": "Loi N° 2017-20 modifiée",
+            "categorie": "Général & Mission",
+            "reponse": (
+                "LexBénin est un service civique d'intérêt général dédié à la vulgarisation "
+                "et à la prévention juridique autour du Code du numérique béninois (Loi N° 2017-20 modifiée). "
+                "Notre mission est de rendre le droit numérique compréhensible et accessible à chaque citoyen, "
+                "professionnel et étudiant afin de prévenir les infractions et sécuriser leurs usages quotidiens."
             ),
+            "resume": (
+                "LexBénin est un service civique d'intérêt général dédié à la vulgarisation "
+                "et à la prévention juridique autour du Code du numérique béninois (Loi N° 2017-20 modifiée)."
+            ),
+            "actionLabel": "Découvrir la mission & déontologie",
+            "actionHref": "/a-propos",
         },
         {
-            "question": (
-                "Est-ce une infraction de créer un faux profil sur les réseaux sociaux "
-                "sous le nom d'un camarade ?"
+            "question": "LexBénin est-il un service entièrement gratuit ?",
+            "statut_legal": "autorisé",
+            "article": "Plateforme civique",
+            "categorie": "Général & Mission",
+            "reponse": (
+                "Oui, l'accès à LexBénin est 100 % gratuit pour tous les citoyens béninois, "
+                "aussi bien sur le portail Web que sur WhatsApp. Il n'y a aucun abonnement, "
+                "aucun paiement requis et aucune publicité."
             ),
-            "statut_legal": "interdit",
-            "article": "Article 558",
             "resume": (
-                "L'usurpation d'identité numérique et l'utilisation de données permettant "
-                "d'identifier un tiers dans le but de troubler sa tranquillité constituent un délit."
+                "Oui, l'accès à LexBénin est 100 % gratuit pour tous les citoyens béninois, "
+                "aussi bien sur le portail Web que sur WhatsApp. Zéro frais, zéro publicité."
             ),
+            "actionLabel": "Interroger l'assistant sans frais",
+            "actionHref": "/chat",
         },
         {
-            "question": (
-                "Que risque-t-on en partageant une information non vérifiée (fake news) "
-                "qui porte atteinte à une entreprise ou un individu ?"
+            "question": "L'assistant remplace-t-il un avocat ou un conseil juridique officiel ?",
+            "statut_legal": "zone grise",
+            "article": "Barreau du Bénin",
+            "categorie": "Général & Mission",
+            "reponse": (
+                "Non. LexBénin est un outil citoyen de première orientation et d'information préventive. "
+                "Ses réponses n'ont pas valeur d'avis juridique opposable ni de consultation officielle. "
+                "En cas de litige avéré ou de plainte pénale, consultez un avocat ou une clinique juridique."
             ),
-            "statut_legal": "interdit",
-            "article": "Article 550",
             "resume": (
-                "La publication ou le partage de fausses nouvelles de nature à troubler la paix "
-                "publique ou à porter atteinte à l'honneur d'autrui est sévèrement sanctionné."
+                "Non. LexBénin informe et oriente mais ne remplace en aucun cas un avocat "
+                "inscrit au Barreau du Bénin ni une consultation juridique personnalisée."
             ),
+            "actionLabel": "Demander une assistance juridique",
+            "actionHref": "/escalade",
+        },
+        {
+            "question": "Comment fonctionne l'IA de LexBénin pour répondre aux questions ?",
+            "statut_legal": "autorisé",
+            "article": "RAG Hybride BM25 + pgvector",
+            "categorie": "Fonctionnement de l'IA",
+            "reponse": (
+                "LexBénin repose sur une architecture RAG hybride. À chaque question, le moteur "
+                "recherche simultanément dans les 646 articles du Code en combinant recherche lexicale "
+                "(BM25) et recherche sémantique vectorielle (pgvector) avec synthèse vulgarisée par Gemini."
+            ),
+            "resume": (
+                "LexBénin combine recherche par mots-clés (BM25) et sémantique (pgvector) "
+                "sur les 646 articles du Code officiel avec synthèse vulgarisée par IA."
+            ),
+            "actionLabel": "Tester le moteur de recherche",
+            "actionHref": "/chat",
+        },
+        {
+            "question": "Comment mes données personnelles et ma vie privée sont-elles protégées (APDP) ?",
+            "statut_legal": "autorisé",
+            "article": "Conformité APDP",
+            "categorie": "Confidentialité & APDP",
+            "reponse": (
+                "LexBénin applique les normes les plus strictes de l'Autorité de Protection des Données "
+                "Personnelles (APDP). Vos identifiants sont pseudonymisés par empreinte SHA-256. "
+                "Aucune donnée nominative n'est stockée en clair et aucun modèle public n'est entraîné."
+            ),
+            "resume": (
+                "Conformité APDP stricte : anonymisation irréversible SHA-256, zéro revente "
+                "de données et zéro entraînement public sur vos messages."
+            ),
+            "actionLabel": "Consulter la charte de confidentialité",
+            "actionHref": "/a-propos",
         },
     ]
 
