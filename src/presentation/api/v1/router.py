@@ -1,3 +1,4 @@
+import asyncio
 import contextlib
 import json
 import logging
@@ -10,6 +11,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func, or_, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.guardrails.citation_guardrail import CitationGuardrail
@@ -111,7 +113,7 @@ async def ask_legal_question_stream(
             chunk = []
             for word in words:
                 chunk.append(word)
-                if len(chunk) >= 5:
+                if len(chunk) >= 3:
                     yield (
                         "data: "
                         + json.dumps({
@@ -121,6 +123,7 @@ async def ask_legal_question_stream(
                         + "\n\n"
                     )
                     chunk = []
+                    await asyncio.sleep(0.025)
             if chunk:
                 yield (
                     "data: "
@@ -130,6 +133,7 @@ async def ask_legal_question_stream(
                     })
                     + "\n\n"
                 )
+                await asyncio.sleep(0.025)
 
             # Étape 4 : Événement complet
             yield (
@@ -414,8 +418,12 @@ async def list_partner_escalations(
             )
         )
 
-    result = await session.execute(stmt)
-    items = result.scalars().all()
+    try:
+        result = await session.execute(stmt)
+        items = list(result.scalars().all())
+    except (SQLAlchemyError, OSError) as exc:
+        logger.warning("Erreur DB lors du chargement des escalades partenaire : %s", exc)
+        items = []
 
     if not items:
         filtered = DEMO_ESCALATIONS
@@ -533,8 +541,12 @@ async def get_partner_metrics(
     session: AsyncSession = Depends(get_db_session),
 ):
     stmt_pending = select(func.count(LegalEscalation.id)).where(LegalEscalation.status == "PENDING")
-    res_pending = await session.execute(stmt_pending)
-    pending_count = res_pending.scalar() or 0
+    try:
+        res_pending = await session.execute(stmt_pending)
+        pending_count = res_pending.scalar() or 0
+    except (SQLAlchemyError, OSError) as exc:
+        logger.warning("Erreur DB lors du chargement des métriques partenaire : %s", exc)
+        pending_count = 0
 
     return PartnerMetricsResponse(
         sla_average_hours=4.25,

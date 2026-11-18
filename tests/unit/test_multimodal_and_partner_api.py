@@ -189,3 +189,28 @@ async def test_partner_metrics():
     assert data["citation_verification_rate"] >= 99.0
     assert data["total_indexed_articles"] == 646
     assert data["apdp_encrypted"] is True
+
+
+@pytest.mark.asyncio
+async def test_partner_endpoints_survive_transient_db_error():
+    """Vérifie la résilience CORS/200 des endpoints partenaire en cas d'erreur SQLAlchemy."""
+    from sqlalchemy.exc import OperationalError
+
+    failing_session = AsyncMock()
+    failing_session.execute = AsyncMock(
+        side_effect=OperationalError("SELECT 1", {}, Exception("connection closed"))
+    )
+    app.dependency_overrides[get_db_session] = lambda: failing_session
+    try:
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            metrics_res = await ac.get("/api/v1/legal/partner/metrics")
+            esc_res = await ac.get("/api/v1/legal/partner/escalations")
+
+        assert metrics_res.status_code == 200
+        assert metrics_res.json()["sla_average_hours"] == 4.25
+        assert metrics_res.json()["pending_audits_count"] == 12
+        assert esc_res.status_code == 200
+        assert isinstance(esc_res.json(), list)
+    finally:
+        app.dependency_overrides.pop(get_db_session, None)
