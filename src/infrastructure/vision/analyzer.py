@@ -9,7 +9,7 @@ from google import genai
 from google.genai import types
 
 from src.core.config import get_settings
-from src.infrastructure.llm.retry import run_gemini_with_retry
+from src.infrastructure.llm.retry import run_gemini_with_fallback
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -98,15 +98,17 @@ Réponds sous le format JSON suivant :
                 types.Part.from_bytes(data=img_bytes, mime_type=mime_type),
                 types.Part.from_text(text=prompt),
             ]
-            response = await run_gemini_with_retry(
-                lambda: genai_client.models.generate_content(
-                    model=settings.GEMINI_TEXT_MODEL,
+            response, _used_model = await run_gemini_with_fallback(
+                lambda model_name: genai_client.models.generate_content(
+                    model=model_name,
                     contents=contents,
                     config=types.GenerateContentConfig(
                         response_mime_type="application/json",
                         temperature=0.1,
                     ),
-                )
+                ),
+                models=settings.get_text_model_candidates(),
+                cooldown_seconds=settings.GEMINI_MODEL_COOLDOWN_SECONDS,
             )
             text_resp = response.text or "{}"
             data = _parse_vision_json(text_resp)
