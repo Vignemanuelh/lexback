@@ -7,7 +7,7 @@ from google import genai
 from google.genai import types
 
 from src.core.config import get_settings
-from src.infrastructure.llm.retry import run_gemini_with_retry
+from src.infrastructure.llm.retry import run_gemini_with_fallback
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -60,14 +60,20 @@ class AudioTranscriber:
                     )
                 ),
             ]
-            response = await run_gemini_with_retry(
-                lambda: genai_client.models.generate_content(
-                    model=settings.GEMINI_TEXT_MODEL,
+            response, used_model = await run_gemini_with_fallback(
+                lambda model_name: genai_client.models.generate_content(
+                    model=model_name,
                     contents=contents,
-                )
+                ),
+                models=settings.get_text_model_candidates(),
+                cooldown_seconds=settings.GEMINI_MODEL_COOLDOWN_SECONDS,
             )
             transcription = response.text.strip() if response.text else ""
-            logger.info(f"Transcription réussie ({len(transcription)} caractères).")
+            logger.info(
+                "Transcription réussie via %s (%d caractères).",
+                used_model,
+                len(transcription),
+            )
             return transcription
         except Exception as e:
             logger.error(f"Erreur lors de la transcription audio Gemini: {e}")

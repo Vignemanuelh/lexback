@@ -42,3 +42,30 @@ async def test_init_db_registers_entities_and_creates_tables():
     mock_conn.run_sync.assert_awaited_once()
     for table in ("law_versions", "legal_articles", "article_embeddings", "citizen_interactions"):
         assert table in Base.metadata.tables
+
+
+def test_get_text_model_candidates_preserves_order_and_deduplicates():
+    """Vérifie la chaîne de fallback gratuite et la déduplication avec GEMINI_TEXT_MODEL."""
+    from src.core.config import Settings
+
+    default_settings = Settings(_env_file=None)
+    assert default_settings.get_text_model_candidates() == [
+        "gemini-4-hydrogen",
+        "gemini-3.8-flash",
+        "gemini-3.5-flash-lite",
+        "gemini-3.6-flash",
+        "gemini-3-flash-preview",
+        "gemini-2.5-flash-lite",
+    ]
+    assert default_settings.GEMINI_EMBEDDING_MODEL == "text-embedding-004"
+
+    custom_settings = Settings(
+        _env_file=None,
+        GEMINI_TEXT_MODEL="gemini-3.6-flash",
+        GEMINI_FALLBACK_MODELS="gemini-4-hydrogen, gemini-3.6-flash, gemini-2.5-flash-lite",
+    )
+    assert custom_settings.get_text_model_candidates() == [
+        "gemini-3.6-flash",
+        "gemini-4-hydrogen",
+        "gemini-2.5-flash-lite",
+    ]

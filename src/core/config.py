@@ -38,9 +38,14 @@ class Settings(BaseSettings):
     REDIS_PORT: int = 6379
     REDIS_URL: str = "redis://localhost:6379/0"
 
-    # Google Gemini
+    # Google Gemini (Free Tier Multi-Modèles)
     GEMINI_API_KEY: str = ""
-    GEMINI_TEXT_MODEL: str = "gemini-2.0-flash"
+    GEMINI_TEXT_MODEL: str = "gemini-4-hydrogen"
+    GEMINI_FALLBACK_MODELS: str = (
+        "gemini-4-hydrogen,gemini-3.8-flash,gemini-3.5-flash-lite,"
+        "gemini-3.6-flash,gemini-3-flash-preview,gemini-2.5-flash-lite"
+    )
+    GEMINI_MODEL_COOLDOWN_SECONDS: int = 60
     GEMINI_EMBEDDING_MODEL: str = "text-embedding-004"
     EMBEDDING_DIMENSION: int = 768
 
@@ -60,6 +65,18 @@ class Settings(BaseSettings):
     # Multimodal & Médias
     MAX_MEDIA_SIZE_MB: int = 16
     TEMP_MEDIA_DIR: str = "/tmp"
+
+    def get_text_model_candidates(self) -> list[str]:
+        """Retourne la chaîne ordonnée et dédupliquée des modèles Gemini texte/multimodal."""
+        raw = [self.GEMINI_TEXT_MODEL, *self.GEMINI_FALLBACK_MODELS.split(",")]
+        seen: set[str] = set()
+        candidates: list[str] = []
+        for item in raw:
+            model = item.strip()
+            if model and model not in seen:
+                seen.add(model)
+                candidates.append(model)
+        return candidates
 
 
 @lru_cache
