@@ -214,3 +214,48 @@ async def test_partner_endpoints_survive_transient_db_error():
         assert isinstance(esc_res.json(), list)
     finally:
         app.dependency_overrides.pop(get_db_session, None)
+
+
+@pytest.mark.asyncio
+async def test_ask_multimodal_ocr_failure_returns_503_or_uses_text_prompt():
+    """Vérifie que /ask/multimodal renvoie HTTP 503 JSON (avec CORS) sans prompt ou bascule sur text_prompt."""
+    dummy_resp = LegalQuestionResponse(
+        interaction_id="uuid-multi-fallback",
+        statut_legal=LegalStatus.INTERDIT,
+        articles_cites=["Article 552"],
+        explication_vulgarisee="Réponse basée sur votre question écrite.",
+        conseil_pratique="Conservez les preuves.",
+        avertissement_legal="Outil de vulgarisation.",
+        necessite_escalade=False,
+        sources=[],
+    )
+
+    with (
+        patch(
+            "src.infrastructure.vision.analyzer.VisionAnalyzer.analyze_image_file",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("503 UNAVAILABLE"),
+        ),
+        patch(
+            "src.presentation.api.v1.router.AskLegalQuestionUseCase.execute",
+            new_callable=AsyncMock,
+            return_value=dummy_resp,
+        ),
+    ):
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as ac:
+            res_no_prompt = await ac.post(
+                "/api/v1/legal/ask/multimodal",
+                files={"file": ("capture.png", io.BytesIO(b"\x89PNG\r\n\x1a\n"), "image/png")},
+                data={"channel": "WEB"},
+            )
+            assert res_no_prompt.status_code == 503
+            assert "indisponible" in res_no_prompt.json()["detail"] or "surchargé" in res_no_prompt.json()["detail"]
+
+            res_with_prompt = await ac.post(
+                "/api/v1/legal/ask/multimodal",
+                files={"file": ("capture.png", io.BytesIO(b"\x89PNG\r\n\x1a\n"), "image/png")},
+                data={"text_prompt": "Que risque l'auteur de ce chantage ?", "channel": "WEB"},
+            )
+            assert res_with_prompt.status_code == 200
+            assert res_with_prompt.json()["explication_vulgarisee"] == "Réponse basée sur votre question écrite."

@@ -221,25 +221,39 @@ async def ask_multimodal(
     question_text = ""
 
     try:
-        if is_audio:
-            transcriber = AudioTranscriber()
-            transcribed = await transcriber.transcribe_file(tmp_path)
-            extracted_content = transcribed.strip()
-            question_text = (
-                f"{text_prompt.strip()} {extracted_content}".strip()
-                if text_prompt and text_prompt.strip()
-                else extracted_content
-            )
-        else:
-            analyzer = VisionAnalyzer()
-            analysis = await analyzer.analyze_image_file(tmp_path)
-            extracted_content = analysis.get("extracted_text", "")
-            formulated = analysis.get("formulated_question", "")
-            question_text = (
-                f"{text_prompt.strip()} Contexte capture : {formulated or extracted_content}".strip()
-                if text_prompt and text_prompt.strip()
-                else (formulated or extracted_content or "Analyse juridique de cette capture")
-            )
+        try:
+            if is_audio:
+                transcriber = AudioTranscriber()
+                transcribed = await transcriber.transcribe_file(tmp_path)
+                extracted_content = transcribed.strip()
+                question_text = (
+                    f"{text_prompt.strip()} {extracted_content}".strip()
+                    if text_prompt and text_prompt.strip()
+                    else extracted_content
+                )
+            else:
+                analyzer = VisionAnalyzer()
+                analysis = await analyzer.analyze_image_file(tmp_path)
+                extracted_content = analysis.get("extracted_text", "")
+                formulated = analysis.get("formulated_question", "")
+                question_text = (
+                    f"{text_prompt.strip()} Contexte capture : {formulated or extracted_content}".strip()
+                    if text_prompt and text_prompt.strip()
+                    else (formulated or extracted_content or "Analyse juridique de cette capture")
+                )
+        except Exception as exc:
+            logger.warning("Échec analyse multimodale (%s) : %s", detected_media, exc)
+            if text_prompt and text_prompt.strip():
+                extracted_content = ""
+                question_text = text_prompt.strip()
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail=(
+                        "Le service d'analyse multimodale est temporairement surchargé. "
+                        "Veuillez réessayer dans quelques secondes ou formuler votre question par écrit."
+                    ),
+                ) from exc
     finally:
         # Règle non-négociable RG-JUR7 : suppression immédiate du média temporaire
         if os.path.exists(tmp_path):
@@ -254,7 +268,14 @@ async def ask_multimodal(
         user_id=user_id,
         channel=channel,
     )
-    result = await use_case.execute(session=session, request=req)
+    try:
+        result = await use_case.execute(session=session, request=req)
+    except Exception as exc:
+        logger.error("Erreur moteur RAG sur requête multimodale : %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Le moteur d'analyse juridique est momentanément indisponible. Veuillez réessayer.",
+        ) from exc
 
     return MultimodalQuestionResponse(
         interaction_id=result.interaction_id,
