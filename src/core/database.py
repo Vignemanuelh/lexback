@@ -26,6 +26,8 @@ async_engine = create_async_engine(
     future=True,
     pool_size=10,
     max_overflow=20,
+    pool_pre_ping=True,
+    pool_recycle=300,
 )
 
 # Fabrique de sessions asynchrones
