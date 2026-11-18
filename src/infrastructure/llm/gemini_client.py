@@ -5,6 +5,7 @@ from google.genai import types
 
 from src.core.config import get_settings
 from src.domain.schemas.rag import LegalResponseSchema
+from src.infrastructure.llm.retry import run_gemini_with_retry
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -25,17 +26,20 @@ class GeminiClient:
 
     async def get_embedding(self, text: str) -> list[float]:
         """Génère l'embedding vectoriel dense pour un fragment de texte."""
-        if not self.client:
+        genai_client = self.client
+        if not genai_client:
             # Mode fallback / test (vecteur unitaire dimension 768)
             return [0.0] * settings.EMBEDDING_DIMENSION
 
         try:
-            response = self.client.models.embed_content(
-                model=settings.GEMINI_EMBEDDING_MODEL,
-                contents=text,
-                config=types.EmbedContentConfig(
-                    output_dimensionality=settings.EMBEDDING_DIMENSION,
-                ),
+            response = await run_gemini_with_retry(
+                lambda: genai_client.models.embed_content(
+                    model=settings.GEMINI_EMBEDDING_MODEL,
+                    contents=text,
+                    config=types.EmbedContentConfig(
+                        output_dimensionality=settings.EMBEDDING_DIMENSION,
+                    ),
+                )
             )
             # Récupère les valeurs du premier embedding
             if hasattr(response, "embeddings") and response.embeddings:
@@ -55,7 +59,8 @@ class GeminiClient:
         self, prompt: str, system_instruction: str
     ) -> LegalResponseSchema:
         """Génère une réponse juridique structurée et typée via Gemini Structured Outputs."""
-        if not self.client:
+        genai_client = self.client
+        if not genai_client:
             raise RuntimeError("GEMINI_API_KEY requise pour la génération de réponses.")
 
         config = types.GenerateContentConfig(
@@ -65,10 +70,12 @@ class GeminiClient:
             response_schema=LegalResponseSchema,
         )
 
-        response = self.client.models.generate_content(
-            model=settings.GEMINI_TEXT_MODEL,
-            contents=prompt,
-            config=config,
+        response = await run_gemini_with_retry(
+            lambda: genai_client.models.generate_content(
+                model=settings.GEMINI_TEXT_MODEL,
+                contents=prompt,
+                config=config,
+            )
         )
 
         # Parse et valide via Pydantic

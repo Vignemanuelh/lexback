@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import tempfile
@@ -8,9 +9,29 @@ from google import genai
 from google.genai import types
 
 from src.core.config import get_settings
+from src.infrastructure.llm.retry import run_gemini_with_retry
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+
+
+def _parse_vision_json(raw_text: str) -> dict[str, Any]:
+    """Extrait proprement le JSON retourné par Gemini Vision même s'il est encapsulé."""
+    cleaned = raw_text.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.split("\n", 1)[-1]
+        if cleaned.endswith("```"):
+            cleaned = cleaned.rsplit("```", 1)[0].strip()
+    try:
+        parsed = json.loads(cleaned)
+    except json.JSONDecodeError:
+        return {"extracted_text": raw_text.strip()}
+
+    if isinstance(parsed, list) and parsed and isinstance(parsed[0], dict):
+        return parsed[0]
+    if isinstance(parsed, dict):
+        return parsed
+    return {"extracted_text": raw_text.strip()}
 
 
 class VisionAnalyzer:
@@ -28,7 +49,8 @@ class VisionAnalyzer:
         if not path.exists():
             raise FileNotFoundError(f"Fichier image introuvable: {image_path}")
 
-        if not self.client:
+        genai_client = self.client
+        if not genai_client:
             logger.info("Mode simulation actif pour l'analyse d'image.")
             return {
                 "extracted_text": "Menace reçue sur WhatsApp: Envoie 100 000 FCFA ou je publie tes photos.",
@@ -51,6 +73,7 @@ class VisionAnalyzer:
                 ".jpg": "image/jpeg",
                 ".jpeg": "image/jpeg",
                 ".webp": "image/webp",
+                ".bmp": "image/bmp",
             }
             mime_type = mime_map.get(suffix, "image/jpeg")
 
@@ -75,18 +98,18 @@ Réponds sous le format JSON suivant :
                 types.Part.from_bytes(data=img_bytes, mime_type=mime_type),
                 types.Part.from_text(text=prompt),
             ]
-            response = self.client.models.generate_content(
-                model=settings.GEMINI_TEXT_MODEL,
-                contents=contents,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    temperature=0.1,
-                ),
+            response = await run_gemini_with_retry(
+                lambda: genai_client.models.generate_content(
+                    model=settings.GEMINI_TEXT_MODEL,
+                    contents=contents,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        temperature=0.1,
+                    ),
+                )
             )
             text_resp = response.text or "{}"
-            import json
-
-            data = json.loads(text_resp)
+            data = _parse_vision_json(text_resp)
             return {
                 "extracted_text": data.get("extracted_text", ""),
                 "context": data.get("context", ""),
