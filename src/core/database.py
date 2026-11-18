@@ -56,6 +56,9 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
 
 async def init_db() -> None:
     """Initialise l'extension pgvector et synchronise les tables de la base de données."""
+    import src.domain.entities.interaction  # noqa: F401
+    import src.domain.entities.law  # noqa: F401
+
     async with async_engine.begin() as conn:
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
         await conn.run_sync(Base.metadata.create_all)

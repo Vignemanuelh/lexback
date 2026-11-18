@@ -34,6 +34,8 @@ async def test_gemini_client_embedding_mock():
 
     vec = await client.get_embedding("Quels sont mes droits ?")
     assert vec == [0.1, 0.2, 0.3]
+    call_kwargs = mock_genai_client.models.embed_content.call_args.kwargs
+    assert call_kwargs["config"].output_dimensionality == 768
 
 
 @pytest.mark.asyncio

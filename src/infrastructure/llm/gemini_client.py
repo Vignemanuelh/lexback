@@ -33,6 +33,9 @@ class GeminiClient:
             response = self.client.models.embed_content(
                 model=settings.GEMINI_EMBEDDING_MODEL,
                 contents=text,
+                config=types.EmbedContentConfig(
+                    output_dimensionality=settings.EMBEDDING_DIMENSION,
+                ),
             )
             # Récupère les valeurs du premier embedding
             if hasattr(response, "embeddings") and response.embeddings:
