@@ -10,6 +10,7 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.core.config import get_settings
 from src.domain.entities.law import (
     ArticleEmbedding,
     LawVersion,
@@ -224,12 +225,13 @@ class IngestLawUseCase:
         }
 
         # 4. Préchargement des embeddings existants indexés par article_id
+        embedding_model_name = get_settings().GEMINI_EMBEDDING_MODEL
         existing_article_ids = [a.id for a in existing_articles]
         embeddings_cache: dict[uuid.UUID, ArticleEmbedding] = {}
         if existing_article_ids:
             stmt_embeddings = select(ArticleEmbedding).where(
                 ArticleEmbedding.article_id.in_(existing_article_ids),
-                ArticleEmbedding.model_name == "text-embedding-004",
+                ArticleEmbedding.model_name == embedding_model_name,
             )
             res_embeddings = await session.execute(stmt_embeddings)
             for emb in res_embeddings.scalars().all():
@@ -331,16 +333,17 @@ class IngestLawUseCase:
                     vector = await self.gemini_client.get_embedding(embed_input)
                     new_emb = ArticleEmbedding(
                         article_id=article.id,
-                        model_name="text-embedding-004",
+                        model_name=embedding_model_name,
                         embedding=vector,
                     )
                     session.add(new_emb)
                     embeddings_cache[article.id] = new_emb
                     computed_embeddings_count += 1
 
-            # Flush par lot
+            # Validation intermédiaire par lot pour reprise sûre en cas d'interruption
             if batch_size > 0 and (idx + 1) % batch_size == 0:
                 await session.flush()
+                await session.commit()
                 logger.info(f"Progression ingestion : {idx + 1}/{len(articles_data)} articles traités.")
 
         # Validation finale de la transaction
