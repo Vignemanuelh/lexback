@@ -34,6 +34,7 @@ from src.infrastructure.llm.gemini_client import GeminiClient
 from src.infrastructure.observability.langfuse_tracer import get_langfuse_tracer
 from src.infrastructure.search.hybrid_search import HybridSearchEngine
 from src.infrastructure.vision.analyzer import VisionAnalyzer
+from src.presentation.security import require_admin_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -679,6 +680,7 @@ async def get_faq():
     "/admin/corpus/upload",
     summary="Charger ou mettre à jour un corpus de loi (format JSON structuré)",
     tags=["Administration Corpus"],
+    dependencies=[Depends(require_admin_api_key)],
 )
 async def upload_corpus(
     file: UploadFile = File(...),
