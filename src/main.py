@@ -58,7 +58,7 @@ app.add_middleware(
     allow_origins=settings.get_cors_origins(),
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "X-API-Key"],
+    allow_headers=["Content-Type", "Authorization", "X-API-Key", "X-Partner-Key"],
 )
 
 # Inclusion des routes API

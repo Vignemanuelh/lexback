@@ -23,6 +23,7 @@ def _prod(**overrides: Any) -> Settings:
         "WHATSAPP_VERIFY_TOKEN": "verify-real",
         "DATABASE_URL": "postgresql+asyncpg://u:strongpw@db:5432/x",
         "ADMIN_PASSWORD": "a-very-strong-password",
+        "PARTNER_API_KEY": "p" * 24,
         "CORS_ORIGINS": "https://lexbenin.emmanuelhoudji.com",
     }
     base.update(overrides)
@@ -45,6 +46,8 @@ def test_production_valid_config_ok():
         {"DATABASE_URL": "postgresql+asyncpg://lexbenin:lexbenin_secret_pass@db/x"},
         {"ADMIN_PASSWORD": ""},
         {"ADMIN_PASSWORD": "short"},
+        {"PARTNER_API_KEY": ""},
+        {"PARTNER_API_KEY": "short"},
         {"CORS_ORIGINS": "*"},
     ],
 )
@@ -143,3 +146,30 @@ async def test_readiness_ok_and_down(monkeypatch):
         monkeypatch.setattr(main_mod, "async_engine", MagicMock(connect=lambda: bad_ctx))
         res = await ac.get("/health/ready")
         assert res.status_code == 503
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [
+        ("get", "/api/v1/legal/partner/escalations"),
+        ("get", "/api/v1/legal/partner/metrics"),
+        ("patch", "/api/v1/legal/partner/escalations/abc"),
+    ],
+)
+async def test_partner_routes_require_key(monkeypatch, method, path):
+    monkeypatch.setattr(get_settings(), "PARTNER_API_KEY", "right-key-0123456789ab")
+    kwargs: dict[str, Any] = {"json": {"status": "RESOLVED"}} if method == "patch" else {}
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as ac:
+        missing = await getattr(ac, method)(path, **kwargs)
+        wrong = await getattr(ac, method)(path, headers={"X-Partner-Key": "nope"}, **kwargs)
+    assert missing.status_code == 401
+    assert wrong.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_partner_routes_disabled_without_configured_key(monkeypatch):
+    monkeypatch.setattr(get_settings(), "PARTNER_API_KEY", "")
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as ac:
+        res = await ac.get("/api/v1/legal/partner/metrics")
+    assert res.status_code == 503

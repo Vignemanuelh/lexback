@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     ADMIN_USERNAME: str = "admin"
     ADMIN_PASSWORD: str = ""
     ADMIN_API_KEY: str = ""
+    PARTNER_API_KEY: str = ""
 
     # Base de données PostgreSQL
     POSTGRES_USER: str = "lexbenin"
@@ -108,6 +109,8 @@ class Settings(BaseSettings):
             problems.append("mot de passe PostgreSQL par défaut dans DATABASE_URL")
         if not self.ADMIN_PASSWORD or len(self.ADMIN_PASSWORD) < 12:
             problems.append("ADMIN_PASSWORD absent ou trop court (<12)")
+        if len(self.PARTNER_API_KEY) < 20:
+            problems.append("PARTNER_API_KEY absente ou trop courte (<20)")
         if "*" in self.get_cors_origins():
             problems.append("CORS_ORIGINS ne doit pas contenir '*'")
         if problems:

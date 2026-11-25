@@ -34,7 +34,7 @@ from src.infrastructure.llm.gemini_client import GeminiClient
 from src.infrastructure.observability.langfuse_tracer import get_langfuse_tracer
 from src.infrastructure.search.hybrid_search import HybridSearchEngine
 from src.infrastructure.vision.analyzer import VisionAnalyzer
-from src.presentation.security import require_admin_api_key
+from src.presentation.security import require_admin_api_key, require_partner_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -422,6 +422,7 @@ DEMO_ESCALATIONS: list[dict[str, Any]] = [
     response_model=list[EscalationItemResponse],
     summary="Liste des demandes d'escalade pour les juristes référents",
     tags=["Espace Partenaire Juridique"],
+    dependencies=[Depends(require_partner_api_key)],
 )
 async def list_partner_escalations(
     status_filter: str | None = None,
@@ -496,6 +497,7 @@ async def list_partner_escalations(
     response_model=EscalationItemResponse,
     summary="Mise à jour d'un dossier d'escalade par le juriste référent",
     tags=["Espace Partenaire Juridique"],
+    dependencies=[Depends(require_partner_api_key)],
 )
 async def update_partner_escalation(
     escalation_id: str,
@@ -558,6 +560,7 @@ async def update_partner_escalation(
     response_model=PartnerMetricsResponse,
     summary="Indicateurs conventionnés d'audit et de performance juridique",
     tags=["Espace Partenaire Juridique"],
+    dependencies=[Depends(require_partner_api_key)],
 )
 async def get_partner_metrics(
     session: AsyncSession = Depends(get_db_session),

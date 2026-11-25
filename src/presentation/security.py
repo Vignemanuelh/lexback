@@ -61,3 +61,18 @@ async def require_admin_api_key(x_api_key: str = Header(default="")) -> None:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Clé d'administration invalide.",
         )
+
+
+async def require_partner_api_key(x_partner_key: str = Header(default="")) -> None:
+    """Dépendance FastAPI protégeant l'espace partenaire (juristes référents) par clé dédiée."""
+    expected = get_settings().PARTNER_API_KEY
+    if not expected:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Espace partenaire désactivé : PARTNER_API_KEY non configurée.",
+        )
+    if not _safe_equal(x_partner_key, expected):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Clé d'accès partenaire invalide.",
+        )
