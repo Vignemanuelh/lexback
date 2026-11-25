@@ -1,0 +1,133 @@
+# ==============================================================================
+# LEXBENIN BACKEND — Compose de PRODUCTION (VPS + Nginx hôte + Supabase + Vault)
+# Usage : docker compose -f docker-compose.prod.yml up -d
+# ==============================================================================
+name: lexbenin_back
+
+x-backend-env: &backend-env
+  volumes:
+    - vault_secrets:/vault/secrets:ro
+
+services:
+  vault:
+    image: hashicorp/vault:1.18
+    restart: unless-stopped
+    command: ["vault", "server", "-config=/vault/config/vault.hcl"]
+    cap_add:
+      - IPC_LOCK
+    environment:
+      VAULT_ADDR: http://127.0.0.1:8200
+    ports:
+      - "127.0.0.1:8200:8200"   # UI/CLI via tunnel SSH uniquement
+    volumes:
+      - ./deploy/vault/config:/vault/config:ro
+      - vault_data:/vault/file
+      - vault_logs:/vault/logs
+    healthcheck:
+      test: ["CMD-SHELL", "vault status >/dev/null 2>&1; [ $$? -ne 1 ]"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lexback_net
+
+  vault-agent:
+    image: hashicorp/vault:1.18
+    restart: unless-stopped
+    command: ["vault", "agent", "-config=/vault/agent/agent.hcl"]
+    depends_on:
+      vault:
+        condition: service_healthy
+    volumes:
+      - ./deploy/vault/agent:/vault/agent:ro
+      - vault_approle:/vault/approle:ro
+      - vault_secrets:/vault/secrets
+    healthcheck:
+      test: ["CMD-SHELL", "test -s /vault/secrets/backend.env"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    networks:
+      - lexback_net
+
+  redis:
+    image: redis:8.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lexback_net
+
+  lexback:
+    image: ${LEXBACK_IMAGE:-ghcr.io/vignemanuelh/lexbenin-back:latest}
+    build:
+      context: .
+    restart: unless-stopped
+    <<: *backend-env
+    environment:
+      ENVIRONMENT: production
+      DEBUG: "false"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_URL: redis://redis:6379/0
+      CORS_ORIGINS: https://lexbenin.emmanuelhoudji.com
+      ENABLE_API_DOCS: "false"
+      AUTO_INGEST_ON_STARTUP: "false"
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+      vault-agent:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - lexback_net
+
+  worker:
+    image: ${LEXBACK_IMAGE:-ghcr.io/vignemanuelh/lexbenin-back:latest}
+    restart: unless-stopped
+    command: ["arq", "src.infrastructure.workers.worker.WorkerSettings"]
+    <<: *backend-env
+    environment:
+      ENVIRONMENT: production
+      DEBUG: "false"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_URL: redis://redis:6379/0
+      CORS_ORIGINS: https://lexbenin.emmanuelhoudji.com
+    depends_on:
+      redis:
+        condition: service_healthy
+      vault-agent:
+        condition: service_healthy
+    networks:
+      - lexback_net
+
+networks:
+  lexback_net:
+    driver: bridge
+
+volumes:
+  redis_data:
+  vault_data:
+  vault_logs:
+  vault_approle:
+    name: lexbenin_vault_approle
+  vault_secrets:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "size=1m,mode=0755"

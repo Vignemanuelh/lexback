@@ -16,3 +16,6 @@ __pycache__/
 .gitignore
 # Données brutes volumineuses (le JSON traité data/processed est conservé)
 data/raw/
+
+deploy/
+*.snap
