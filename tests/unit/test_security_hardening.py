@@ -10,9 +10,9 @@ from src.main import app
 STRONG = "x" * 40
 
 
-def _make(**kwargs: Any) -> Settings:
-    """Construit des Settings isolés du fichier .env."""
-    return Settings(_env_file=None, **kwargs)  # type: ignore[call-arg]
+def _make(_env_file: str | None = None, **kwargs: Any) -> Settings:
+    """Construit des Settings isolés du fichier .env (sauf fichier explicite)."""
+    return Settings(_env_file=_env_file, **kwargs)  # type: ignore[call-arg]
 
 
 def _prod(**overrides: Any) -> Settings:
@@ -173,3 +173,18 @@ async def test_partner_routes_disabled_without_configured_key(monkeypatch):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as ac:
         res = await ac.get("/api/v1/legal/partner/metrics")
     assert res.status_code == 503
+
+
+def test_settings_load_vault_rendered_env_file(tmp_path):
+    """Le fichier rendu par Vault Agent (quotes simples, \\ et ' échappés) est lu fidèlement."""
+    tricky = "L&xN'p$w\\d#1"
+    escaped = tricky.replace("\\", "\\\\").replace("'", "\\'")
+    env_file = tmp_path / "backend.env"
+    env_file.write_text(
+        f"ADMIN_PASSWORD='{escaped}'\nPARTNER_API_KEY='{'k' * 24}'\nGEMINI_API_KEY='abc'\n",
+        encoding="utf-8",
+    )
+    s = _make(_env_file=str(env_file))
+    assert tricky == s.ADMIN_PASSWORD
+    assert s.PARTNER_API_KEY == "k" * 24
+    assert s.GEMINI_API_KEY == "abc"

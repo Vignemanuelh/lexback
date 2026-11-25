@@ -14,7 +14,8 @@ class Settings(BaseSettings):
     """Configuration centrale de l'application LEXBENIN."""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        # Le fichier rendu par Vault Agent (production) l'emporte sur .env (développement)
+        env_file=(".env", "/vault/secrets/backend.env"),
         env_file_encoding="utf-8",
         extra="ignore",
     )
