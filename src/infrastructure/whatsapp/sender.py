@@ -150,3 +150,82 @@ class WhatsAppMessageSender:
             res = await client.post(self.messages_endpoint, json=payload, headers=headers)
             res.raise_for_status()
             return res.json()
+
+    async def get_media_url(self, media_id: str) -> str:
+        """Récupère l'URL temporaire de téléchargement d'un média depuis Meta Graph API."""
+        if not self.access_token:
+            logger.warning("Token WhatsApp manquant: URL média simulée.")
+            return f"{self.base_url}/{self.api_version}/{media_id}/download_simulated"
+
+        url = f"{self.base_url}/{self.api_version}/{media_id}"
+        headers = {"Authorization": f"Bearer {self.access_token}"}
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                res = await client.get(url, headers=headers)
+                res.raise_for_status()
+                data = res.json()
+                return data.get("url", "")
+        except Exception as e:
+            logger.error(f"Erreur lors de la récupération de l'URL média {media_id}: {e}")
+            raise
+
+    async def download_media(self, media_id: str) -> bytes:
+        """Télécharge le fichier binaire d'un média WhatsApp (audio ou image)."""
+        if not self.access_token:
+            logger.warning(f"Mode simulation actif pour le téléchargement du média {media_id}.")
+            return b"simulated_media_binary_content"
+
+        media_url = await self.get_media_url(media_id)
+        if not media_url:
+            raise ValueError(f"Impossible d'obtenir l'URL de téléchargement pour le média {media_id}")
+
+        headers = {"Authorization": f"Bearer {self.access_token}"}
+        try:
+            async with httpx.AsyncClient(timeout=25.0) as client:
+                res = await client.get(media_url, headers=headers)
+                res.raise_for_status()
+                return res.content
+        except Exception as e:
+            logger.error(f"Erreur lors du téléchargement binaire du média {media_id}: {e}")
+            raise
+
+    async def send_audio_message(
+        self,
+        recipient_phone: str,
+        audio_url: str | None = None,
+        audio_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Envoie un message vocal/audio WhatsApp à l'usager."""
+        if not self.access_token or not self.phone_number_id:
+            logger.warning("Configuration WhatsApp incomplète. Mode simulation actif pour l'audio.")
+            return {"status": "simulated", "recipient": recipient_phone, "type": "audio"}
+
+        headers = {
+            "Authorization": f"Bearer {self.access_token}",
+            "Content-Type": "application/json",
+        }
+        audio_payload: dict[str, Any] = {}
+        if audio_id:
+            audio_payload = {"id": audio_id}
+        elif audio_url:
+            audio_payload = {"link": audio_url}
+        else:
+            raise ValueError("audio_id ou audio_url doit être fourni pour l'envoi audio.")
+
+        payload = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": recipient_phone,
+            "type": "audio",
+            "audio": audio_payload,
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                res = await client.post(self.messages_endpoint, json=payload, headers=headers)
+                res.raise_for_status()
+                return res.json()
+        except Exception as e:
+            logger.error(f"Échec de l'envoi audio WhatsApp vers {recipient_phone}: {e}")
+            raise
+

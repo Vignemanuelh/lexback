@@ -7,6 +7,7 @@ from google import genai
 from google.genai import types
 
 from src.core.config import get_settings
+from src.infrastructure.llm.retry import run_gemini_with_fallback
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -27,7 +28,8 @@ class AudioTranscriber:
         if not path.exists():
             raise FileNotFoundError(f"Fichier audio introuvable: {audio_file_path}")
 
-        if not self.client:
+        genai_client = self.client
+        if not genai_client:
             logger.info("Mode simulation actif pour la transcription audio.")
             return "Transcription vocale simulée: Est-ce autorisé de publier une capture d'écran sans accord ?"
 
@@ -43,6 +45,7 @@ class AudioTranscriber:
                 ".mp3": "audio/mp3",
                 ".wav": "audio/wav",
                 ".m4a": "audio/mp4",
+                ".webm": "audio/webm",
             }
             mime_type = mime_map.get(suffix, "audio/ogg")
 
@@ -57,12 +60,20 @@ class AudioTranscriber:
                     )
                 ),
             ]
-            response = self.client.models.generate_content(
-                model=settings.GEMINI_TEXT_MODEL,
-                contents=contents,
+            response, used_model = await run_gemini_with_fallback(
+                lambda model_name: genai_client.models.generate_content(
+                    model=model_name,
+                    contents=contents,
+                ),
+                models=settings.get_text_model_candidates(),
+                cooldown_seconds=settings.GEMINI_MODEL_COOLDOWN_SECONDS,
             )
             transcription = response.text.strip() if response.text else ""
-            logger.info(f"Transcription réussie ({len(transcription)} caractères).")
+            logger.info(
+                "Transcription réussie via %s (%d caractères).",
+                used_model,
+                len(transcription),
+            )
             return transcription
         except Exception as e:
             logger.error(f"Erreur lors de la transcription audio Gemini: {e}")

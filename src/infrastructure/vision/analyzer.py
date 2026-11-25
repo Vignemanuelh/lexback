@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import tempfile
@@ -8,9 +9,29 @@ from google import genai
 from google.genai import types
 
 from src.core.config import get_settings
+from src.infrastructure.llm.retry import run_gemini_with_fallback
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+
+
+def _parse_vision_json(raw_text: str) -> dict[str, Any]:
+    """Extrait proprement le JSON retourné par Gemini Vision même s'il est encapsulé."""
+    cleaned = raw_text.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.split("\n", 1)[-1]
+        if cleaned.endswith("```"):
+            cleaned = cleaned.rsplit("```", 1)[0].strip()
+    try:
+        parsed = json.loads(cleaned)
+    except json.JSONDecodeError:
+        return {"extracted_text": raw_text.strip()}
+
+    if isinstance(parsed, list) and parsed and isinstance(parsed[0], dict):
+        return parsed[0]
+    if isinstance(parsed, dict):
+        return parsed
+    return {"extracted_text": raw_text.strip()}
 
 
 class VisionAnalyzer:
@@ -28,11 +49,14 @@ class VisionAnalyzer:
         if not path.exists():
             raise FileNotFoundError(f"Fichier image introuvable: {image_path}")
 
-        if not self.client:
+        genai_client = self.client
+        if not genai_client:
             logger.info("Mode simulation actif pour l'analyse d'image.")
             return {
                 "extracted_text": "Menace reçue sur WhatsApp: Envoie 100 000 FCFA ou je publie tes photos.",
                 "context": "Capture d'écran de conversation de messagerie instantanée contenant une tentative d'extorsion et de chantage.",
+                "contains_identifiable_person": True,
+                "is_potential_ai_or_manipulated": False,
                 "formulated_question": (
                     "Une personne menace de diffuser des photos intimes d'un individu en échange "
                     "d'une somme d'argent sur WhatsApp. Que prévoit la loi béninoise ?"
@@ -49,6 +73,7 @@ class VisionAnalyzer:
                 ".jpg": "image/jpeg",
                 ".jpeg": "image/jpeg",
                 ".webp": "image/webp",
+                ".bmp": "image/bmp",
             }
             mime_type = mime_map.get(suffix, "image/jpeg")
 
@@ -56,12 +81,16 @@ class VisionAnalyzer:
 Analyse cette capture d'écran ou photo :
 1. Extrais fidèlement tout le texte visible dans l'image.
 2. Décris brièvement le contexte (ex: conversation WhatsApp, statut Facebook, publication TikTok, SMS).
-3. Formule une question juridique précise en langage naturel résumant l'action ou l'acte litigieux visible dans l'image.
+3. Détecte si l'image implique une ou plusieurs personnes identifiables (photo réelle ou capture), et évalue l'enjeu du consentement et de l'atteinte à la vie privée / droit à l'image.
+4. Repère si l'image présente des indices de trucage, photomontage, caricature ou génération artificielle par IA (deepfake) de nature à constituer une usurpation d'identité, diffamation ou fausse nouvelle.
+5. Formule une question juridique précise en langage naturel résumant l'action ou l'acte litigieux visible dans l'image en intégrant les risques spécifiques détectés.
 
 Réponds sous le format JSON suivant :
 {
     "extracted_text": "...",
     "context": "...",
+    "contains_identifiable_person": true,
+    "is_potential_ai_or_manipulated": false,
     "formulated_question": "..."
 }"""
 
@@ -69,21 +98,25 @@ Réponds sous le format JSON suivant :
                 types.Part.from_bytes(data=img_bytes, mime_type=mime_type),
                 types.Part.from_text(text=prompt),
             ]
-            response = self.client.models.generate_content(
-                model=settings.GEMINI_TEXT_MODEL,
-                contents=contents,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    temperature=0.1,
+            response, _used_model = await run_gemini_with_fallback(
+                lambda model_name: genai_client.models.generate_content(
+                    model=model_name,
+                    contents=contents,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        temperature=0.1,
+                    ),
                 ),
+                models=settings.get_text_model_candidates(),
+                cooldown_seconds=settings.GEMINI_MODEL_COOLDOWN_SECONDS,
             )
             text_resp = response.text or "{}"
-            import json
-
-            data = json.loads(text_resp)
+            data = _parse_vision_json(text_resp)
             return {
                 "extracted_text": data.get("extracted_text", ""),
                 "context": data.get("context", ""),
+                "contains_identifiable_person": bool(data.get("contains_identifiable_person", False)),
+                "is_potential_ai_or_manipulated": bool(data.get("is_potential_ai_or_manipulated", False)),
                 "formulated_question": data.get(
                     "formulated_question",
                     data.get("extracted_text", "Capture d'écran soumise pour avis juridique."),

@@ -5,9 +5,11 @@ echo "🚀 [LEXBENIN] Initialisation du conteneur Backend..."
 
 # Attente de la base de données PostgreSQL
 python -c "
-import socket, time, os, sys
-host = os.environ.get('POSTGRES_HOST', 'localhost')
-port = int(os.environ.get('POSTGRES_PORT', '5432'))
+import socket, time
+from urllib.parse import urlparse
+from src.core.config import get_settings
+url = urlparse(get_settings().DATABASE_URL.replace('+asyncpg', ''))
+host, port = url.hostname or 'localhost', url.port or 5432
 print(f'⏳ Attente de PostgreSQL sur {host}:{port}...')
 connected = False
 for i in range(30):

@@ -1,6 +1,6 @@
 from collections.abc import AsyncGenerator
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -20,12 +20,21 @@ class Base(DeclarativeBase):
 
 
 # Moteur asynchrone pour les opérations API et RAG
+_async_connect_args: dict[str, object] = (
+    {"statement_cache_size": 0, "prepared_statement_cache_size": 0}
+    if settings.DATABASE_DISABLE_STATEMENT_CACHE
+    else {}
+)
+
 async_engine = create_async_engine(
     settings.DATABASE_URL,
+    connect_args=_async_connect_args,
     echo=settings.DEBUG,
     future=True,
     pool_size=10,
     max_overflow=20,
+    pool_pre_ping=True,
+    pool_recycle=300,
 )
 
 # Fabrique de sessions asynchrones
@@ -52,3 +61,14 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
             yield session
         finally:
             await session.close()
+
+
+async def init_db() -> None:
+    """Initialise l'extension pgvector et synchronise les tables de la base de données."""
+    import src.domain.entities.interaction  # noqa: F401
+    import src.domain.entities.law  # noqa: F401
+
+    async with async_engine.begin() as conn:
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
+        await conn.run_sync(Base.metadata.create_all)
+

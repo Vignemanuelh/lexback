@@ -141,9 +141,13 @@ Rédige ta réponse structurée en respectant scrupuleusement les règles et le 
                 prompt=prompt,
                 system_instruction=SYSTEM_INSTRUCTION,
             )
+            used_model = getattr(self.gemini_client, "last_used_model", None) or settings.GEMINI_TEXT_MODEL
             self.tracer.end_span(
                 gen_span,
-                outputs={"statut": raw_llm_response.statut_legal.value},
+                outputs={
+                    "statut": raw_llm_response.statut_legal.value,
+                    "model": used_model,
+                },
             )
 
             # 4. Garde-fou anti-hallucination déterministe

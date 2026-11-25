@@ -48,15 +48,22 @@ def mock_whatsapp():
 
 @pytest.fixture
 def mock_whisper():
-    """Mock obligatoire pour la transcription vocale (STT)."""
-    with patch("src.services.audio.transcriber.transcribe_audio", new_callable=AsyncMock) as m:
+    """Mock pour la transcription vocale (STT)."""
+    with patch(
+        "src.infrastructure.audio.transcriber.AudioTranscriber.transcribe_file",
+        new_callable=AsyncMock,
+    ) as m:
         m.return_value = "Est-ce que je peux publier la capture d'un message privé sur Facebook ?"
         yield m
 
 
 @pytest.fixture
 def mock_tts():
-    """Mock obligatoire pour la synthèse vocale (TTS)."""
-    with patch("src.services.audio.synthesizer.synthesize_speech", new_callable=AsyncMock) as m:
+    """Mock pour la synthèse vocale (TTS)."""
+    with patch(
+        "src.infrastructure.audio.synthesizer.SpeechSynthesizer.synthesize_speech",
+        new_callable=AsyncMock,
+    ) as m:
         m.return_value = b"OggS_fake_audio_bytes"
         yield m
+

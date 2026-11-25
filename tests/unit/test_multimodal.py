@@ -83,3 +83,62 @@ async def test_speech_synthesizer_nominal():
 
     empty_audio = await synth.synthesize_speech("")
     assert empty_audio == b""
+
+
+@pytest.mark.asyncio
+async def test_audio_transcriber_webm_mime_type():
+    transcriber = AudioTranscriber(gemini_api_key="fake-key")
+    mock_client = MagicMock()
+    mock_resp = MagicMock()
+    mock_resp.text = "Est-ce légal ?"
+    mock_client.models.generate_content.return_value = mock_resp
+    transcriber.client = mock_client
+
+    text = await transcriber.transcribe_bytes(b"webm_audio_bytes", suffix=".webm")
+    assert text == "Est-ce légal ?"
+    contents = mock_client.models.generate_content.call_args.kwargs["contents"]
+    assert contents[0].inline_data.mime_type == "audio/webm"
+
+
+@pytest.mark.asyncio
+async def test_vision_analyzer_fenced_json_and_503_retry():
+    from src.infrastructure.llm.retry import clear_model_cooldowns
+
+    clear_model_cooldowns()
+    analyzer = VisionAnalyzer(gemini_api_key="fake-key")
+    mock_client = MagicMock()
+    mock_resp = MagicMock()
+    mock_resp.text = '```json\n{"extracted_text": "Menace SMS", "formulated_question": "Est-ce du chantage ?"}\n```'
+    mock_client.models.generate_content.side_effect = [
+        RuntimeError("503 UNAVAILABLE"),
+        mock_resp,
+    ]
+    analyzer.client = mock_client
+
+    result = await analyzer.analyze_image_bytes(b"img", suffix=".png")
+
+    assert result["extracted_text"] == "Menace SMS"
+    assert result["formulated_question"] == "Est-ce du chantage ?"
+    assert mock_client.models.generate_content.call_count == 2
+    clear_model_cooldowns()
+
+
+@pytest.mark.asyncio
+async def test_audio_transcriber_fallback_on_429():
+    from src.infrastructure.llm.retry import clear_model_cooldowns
+
+    clear_model_cooldowns()
+    transcriber = AudioTranscriber(gemini_api_key="fake-key")
+    mock_client = MagicMock()
+    ok_resp = MagicMock()
+    ok_resp.text = "Puis-je enregistrer un appel ?"
+    mock_client.models.generate_content.side_effect = [
+        RuntimeError("429 RESOURCE_EXHAUSTED"),
+        ok_resp,
+    ]
+    transcriber.client = mock_client
+
+    text = await transcriber.transcribe_bytes(b"audio", suffix=".webm")
+    assert text == "Puis-je enregistrer un appel ?"
+    assert mock_client.models.generate_content.call_count == 2
+    clear_model_cooldowns()

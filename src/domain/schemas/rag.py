@@ -96,3 +96,54 @@ class EscalationRequest(BaseModel):
     citizen_contact: str = Field(..., description="Numéro de téléphone ou email de l'usager")
     question_summary: str = Field(..., description="Résumé de la situation à clarifier")
     reason: str = Field("ZONE_GRISE", description="Raison de l'escalade")
+
+
+class MultimodalQuestionResponse(LegalQuestionResponse):
+    """Réponse enrichie pour les requêtes citoyennes multimodales Web."""
+
+    extracted_content: str | None = Field(
+        None, description="Contenu brut extrait par transcription audio ou analyse OCR."
+    )
+    detected_media_type: str | None = Field(
+        None, description="Type de média détecté : 'audio' ou 'image'."
+    )
+
+
+class EscalationUpdateRequest(BaseModel):
+    """Mise à jour d'un dossier d'escalade par un juriste référent."""
+
+    status: str | None = Field(None, description="Nouveau statut : PENDING, IN_REVIEW, RESOLVED")
+    assigned_jurist: str | None = Field(None, description="Nom du juriste référent assigné")
+    jurist_response: str | None = Field(None, description="Notes d'instruction ou avis formulé")
+
+
+class EscalationItemResponse(BaseModel):
+    """Fiche détaillée d'un dossier d'escalade citoyenne."""
+
+    id: str
+    interaction_id: str | None = None
+    reference_number: str
+    citizen_contact: str
+    question_summary: str
+    reason: str
+    status: str
+    assigned_jurist: str | None = None
+    jurist_response: str | None = None
+    created_at: str
+    resolved_at: str | None = None
+    interaction_context: dict | None = None
+
+
+class PartnerMetricsResponse(BaseModel):
+    """Indicateurs d'audit et de performance juridique de la permanence conventionnée."""
+
+    sla_average_hours: float = 4.25
+    monthly_requests: int = 47
+    accuracy_rate: float = 96.4
+    citation_verification_rate: float = 99.1
+    grey_zone_escalation_rate: float = 8.2
+    pending_audits_count: int = 12
+    active_law_reference: str = "Loi N° 2017-20 consolidée"
+    total_indexed_articles: int = 646
+    apdp_encrypted: bool = True
+

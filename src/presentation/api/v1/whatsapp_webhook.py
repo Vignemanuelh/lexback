@@ -9,6 +9,7 @@ from src.application.use_cases.ask_legal_question import AskLegalQuestionUseCase
 from src.application.use_cases.process_whatsapp_message import ProcessWhatsAppMessageUseCase
 from src.core.config import get_settings
 from src.core.database import async_session_factory
+from src.infrastructure.audio.synthesizer import SpeechSynthesizer
 from src.infrastructure.audio.transcriber import AudioTranscriber
 from src.infrastructure.llm.gemini_client import GeminiClient
 from src.infrastructure.search.hybrid_search import HybridSearchEngine
@@ -34,11 +35,13 @@ def get_whatsapp_orchestrator() -> ProcessWhatsAppMessageUseCase:
     whatsapp_sender = WhatsAppMessageSender()
     transcriber = AudioTranscriber()
     vision_analyzer = VisionAnalyzer()
+    synthesizer = SpeechSynthesizer()
     return ProcessWhatsAppMessageUseCase(
         ask_use_case=ask_use_case,
         whatsapp_sender=whatsapp_sender,
         transcriber=transcriber,
         vision_analyzer=vision_analyzer,
+        synthesizer=synthesizer,
     )
 
 

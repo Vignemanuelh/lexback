@@ -1,0 +1,18 @@
+# Secrets : ne JAMAIS embarquer dans l'image (fournis par Vault à l'exécution)
+.env
+.env.*
+!.env.example
+# Environnements & caches
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+# Git & outils
+.git/
+.gitignore
+# Données brutes volumineuses (le JSON traité data/processed est conservé)
+data/raw/
