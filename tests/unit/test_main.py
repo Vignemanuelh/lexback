@@ -1,7 +1,14 @@
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from src.core.config import get_settings
 from src.main import app
+
+
+@pytest.fixture(autouse=True)
+def _admin_api_key(monkeypatch):
+    """Configure une clé d'administration de test."""
+    monkeypatch.setattr(get_settings(), "ADMIN_API_KEY", "test-admin-key")
 
 
 @pytest.mark.asyncio
@@ -35,7 +42,9 @@ async def test_admin_corpus_upload_invalid_extension():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         files = {"file": ("code.txt", b"plain text content", "text/plain")}
-        res = await ac.post("/api/v1/legal/admin/corpus/upload", files=files)
+        res = await ac.post(
+            "/api/v1/legal/admin/corpus/upload", files=files, headers={"X-API-Key": "test-admin-key"}
+        )
     assert res.status_code == 400
     assert "Seuls les fichiers .json" in res.json()["detail"]
 
@@ -67,7 +76,9 @@ async def test_admin_corpus_upload_valid_json():
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as ac:
             files = {"file": ("code.json", b'{"metadata": {}, "structures": []}', "application/json")}
-            res = await ac.post("/api/v1/legal/admin/corpus/upload", files=files)
+            res = await ac.post(
+            "/api/v1/legal/admin/corpus/upload", files=files, headers={"X-API-Key": "test-admin-key"}
+        )
 
         assert res.status_code == 200
         data = res.json()

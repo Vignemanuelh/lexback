@@ -20,8 +20,15 @@ class Base(DeclarativeBase):
 
 
 # Moteur asynchrone pour les opérations API et RAG
+_async_connect_args: dict[str, object] = (
+    {"statement_cache_size": 0, "prepared_statement_cache_size": 0}
+    if settings.DATABASE_DISABLE_STATEMENT_CACHE
+    else {}
+)
+
 async_engine = create_async_engine(
     settings.DATABASE_URL,
+    connect_args=_async_connect_args,
     echo=settings.DEBUG,
     future=True,
     pool_size=10,

@@ -1,9 +1,10 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sqladmin import Admin
+from sqlalchemy import text
 
 from src.core.config import get_settings
 from src.core.database import async_engine, sync_engine
@@ -17,6 +18,7 @@ from src.presentation.admin.views import (
 )
 from src.presentation.api.v1.router import router as legal_router
 from src.presentation.api.v1.whatsapp_webhook import router as whatsapp_router
+from src.presentation.security import AdminAuth
 
 logging.basicConfig(
     level=logging.INFO,
@@ -45,17 +47,18 @@ app = FastAPI(
     ),
     version="0.1.0",
     lifespan=lifespan,
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url="/docs" if settings.docs_enabled else None,
+    redoc_url="/redoc" if settings.docs_enabled else None,
+    openapi_url="/openapi.json" if settings.docs_enabled else None,
 )
 
 # Configuration CORS pour autoriser le portail citoyen Next.js
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Restreindre en production aux domaines autorisés
+    allow_origins=settings.get_cors_origins(),
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PATCH", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-API-Key", "X-Partner-Key"],
 )
 
 # Inclusion des routes API
@@ -73,12 +76,26 @@ async def health_check():
     }
 
 
+@app.get("/health/ready", tags=["Santé"])
+async def readiness_check(response: Response):
+    """Vérifie la disponibilité effective de la base de données (readiness)."""
+    try:
+        async with async_engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+    except Exception as exc:  # noqa: BLE001
+        logger.error("readiness_db_indisponible", exc_info=True)
+        response.status_code = 503
+        return {"status": "unavailable", "database": "down", "erreur": type(exc).__name__}
+    return {"status": "ready", "database": "up"}
+
+
 # Montage du panneau d'administration SQLAdmin
 admin = Admin(
     app=app,
     engine=sync_engine,
     title="LEXBENIN Juriste & Admin",
     base_url="/admin",
+    authentication_backend=AdminAuth(secret_key=settings.SECRET_KEY),
 )
 
 admin.add_view(LawVersionAdmin)

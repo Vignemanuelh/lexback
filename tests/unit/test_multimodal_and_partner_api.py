@@ -4,9 +4,18 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from src.core.config import get_settings
 from src.core.database import get_db_session
 from src.domain.schemas.rag import LegalArticleCitation, LegalQuestionResponse, LegalStatus
 from src.main import app
+
+PH = {"X-Partner-Key": "test-partner-key-0123456789"}
+
+
+@pytest.fixture(autouse=True)
+def partner_key(monkeypatch):
+    """Configure une clé partenaire de test."""
+    monkeypatch.setattr(get_settings(), "PARTNER_API_KEY", PH["X-Partner-Key"])
 
 
 @pytest.fixture(autouse=True)
@@ -133,7 +142,7 @@ async def test_partner_escalations_list():
     """Vérifie la récupération de la file d'attente citoyenne pour les juristes."""
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        res = await ac.get("/api/v1/legal/partner/escalations")
+        res = await ac.get("/api/v1/legal/partner/escalations", headers=PH)
 
     assert res.status_code == 200
     items = res.json()
@@ -149,7 +158,7 @@ async def test_partner_escalations_filter_by_status():
     """Vérifie le filtrage par statut dans la file partenaire."""
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        res = await ac.get("/api/v1/legal/partner/escalations?status_filter=PENDING")
+        res = await ac.get("/api/v1/legal/partner/escalations?status_filter=PENDING", headers=PH)
 
     assert res.status_code == 200
     items = res.json()
@@ -168,7 +177,9 @@ async def test_partner_escalations_patch():
             "assigned_jurist": "Me Karen Houndété",
             "jurist_response": "Dossier pris en charge pour orientation Barreau.",
         }
-        res = await ac.patch(f"/api/v1/legal/partner/escalations/{demo_id}", json=payload)
+        res = await ac.patch(
+            f"/api/v1/legal/partner/escalations/{demo_id}", json=payload, headers=PH
+        )
 
     assert res.status_code == 200
     updated = res.json()
@@ -181,7 +192,7 @@ async def test_partner_metrics():
     """Vérifie les métriques conventionnées d'audit et performance."""
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        res = await ac.get("/api/v1/legal/partner/metrics")
+        res = await ac.get("/api/v1/legal/partner/metrics", headers=PH)
 
     assert res.status_code == 200
     data = res.json()
@@ -204,8 +215,8 @@ async def test_partner_endpoints_survive_transient_db_error():
     try:
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as ac:
-            metrics_res = await ac.get("/api/v1/legal/partner/metrics")
-            esc_res = await ac.get("/api/v1/legal/partner/escalations")
+            metrics_res = await ac.get("/api/v1/legal/partner/metrics", headers=PH)
+            esc_res = await ac.get("/api/v1/legal/partner/escalations", headers=PH)
 
         assert metrics_res.status_code == 200
         assert metrics_res.json()["sla_average_hours"] == 4.25
